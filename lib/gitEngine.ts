@@ -279,8 +279,8 @@ export const rebaseOnto = (state: RepoState, sourceBranchName: string, ontoBranc
 
   while (cursor && cursor.id !== ancestor) {
     linear.unshift(cursor);
-    const parentId = cursor.parentIds[0] ?? null;
-    cursor = parentId ? readCommit(next, parentId) : null;
+    const nextParentId: string | null = cursor.parentIds[0] ?? null;
+    cursor = nextParentId ? readCommit(next, nextParentId) : null;
   }
 
   let parentId = ontoHead.id;
