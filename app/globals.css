@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(88, 166, 255, 0.14), transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(35, 134, 54, 0.16), transparent 32%),
+    #0d1117;
+  color: #e6edf3;
+}
+
+.panel {
+  @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl;
+}
+
+.grid-bg {
+  background-size: 24px 24px;
+}
