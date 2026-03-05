@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
-  basePath: '/git-visualizer',
-  assetPrefix: '/git-visualizer/',
+  basePath: '/GitVisualizer',
+  assetPrefix: '/GitVisualizer/',
   images: { unoptimized: true }
 };
 
