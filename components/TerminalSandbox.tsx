@@ -1,13 +1,13 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { RepoState } from '@/lib/gitEngine';
 
-interface TerminalSandboxProps {
+type TerminalSandboxProps = {
   state: RepoState;
   onStateChange: (state: RepoState) => void;
-}
+};
 
 export default function TerminalSandbox({ state, onStateChange }: TerminalSandboxProps) {
   const [input, setInput] = useState('');
@@ -18,15 +18,17 @@ export default function TerminalSandbox({ state, onStateChange }: TerminalSandbo
 
   const prompt = useMemo(() => `${state.currentBranch} $`, [state.currentBranch]);
 
-  const submitCommand = (event: FormEvent) => {
+  const submitCommand = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     const raw = input.trim();
     if (!raw) return;
 
     const result = executeGitCommand(state, raw);
     onStateChange(result.nextState);
 
-    setHistory((prev) => [...prev, `${prompt} ${raw}`, result.output || (result.success ? 'OK' : 'No output')]);
+    const output = result.output || (result.success ? 'OK' : 'No output');
+    setHistory((prev) => [...prev, `${prompt} ${raw}`, output]);
     setInput('');
   };
 
@@ -61,7 +63,7 @@ export default function TerminalSandbox({ state, onStateChange }: TerminalSandbo
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="git commit -m \"feature\""
+          placeholder={'git commit -m "feature"'}
           className="w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-slate-500"
         />
       </form>
