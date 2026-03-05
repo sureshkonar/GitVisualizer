@@ -44,11 +44,11 @@ export default function ChallengeMode() {
   };
 
   return (
-    <section className="panel p-5">
+    <section className="surface rounded-2xl p-5">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-xl font-semibold">Git Challenge Mode</h3>
-          <p className="text-xs text-slate-300">LeetCode-style command puzzles with XP, badges, and timing pressure.</p>
+          <p className="text-xs text-slate-300">Puzzle-driven command practice with XP progression.</p>
         </div>
         <div className="text-right text-xs">
           <p className="font-mono text-gitGreen">XP {xp}</p>
@@ -56,14 +56,14 @@ export default function ChallengeMode() {
         </div>
       </header>
 
-      <motion.div key={challenge.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mb-3 rounded-xl border border-white/10 bg-black/30 p-4">
+      <motion.div key={challenge.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="surface-soft mb-3 rounded-xl p-4">
         <p className="mb-1 text-xs uppercase tracking-widest text-gitBlue">{challenge.difficulty}</p>
         <h4 className="font-semibold">{challenge.title}</h4>
         <p className="mt-2 text-sm text-slate-300">{challenge.objective}</p>
         <p className="mt-2 text-xs text-slate-400">Time limit: {challenge.timeLimit}s</p>
       </motion.div>
 
-      <div className="mb-3 rounded-xl border border-white/10 bg-black/40 p-3">
+      <div className="surface-soft mb-3 rounded-xl p-3">
         <p className="mb-2 text-xs text-slate-400">Next required command</p>
         <p className="font-mono text-sm text-gitBlue">{complete ? 'Challenge completed.' : expected}</p>
       </div>
@@ -73,9 +73,9 @@ export default function ChallengeMode() {
           value={input}
           onChange={(event) => setInput(event.target.value)}
           placeholder="Type exact git command"
-          className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 font-mono text-sm outline-none"
+          className="surface-soft w-full rounded-lg px-3 py-2 font-mono text-sm outline-none"
         />
-        <button onClick={submit} className="rounded-lg bg-gitGreen px-3 py-2 text-sm font-semibold">
+        <button onClick={submit} className="rounded-lg bg-gitGreen px-3 py-2 text-sm font-semibold text-black">
           Run
         </button>
       </div>

@@ -17,10 +17,10 @@ export default function TimeMachine({ state, onStateChange }: TimeMachineProps) 
   const current = timeline[cursor] ?? timeline[timeline.length - 1] ?? null;
 
   return (
-    <section className="panel p-5">
+    <section className="surface rounded-2xl p-5">
       <header className="mb-4">
         <h3 className="text-xl font-semibold">Git Time Machine</h3>
-        <p className="text-xs text-slate-300">Scrub repository history and replay commit evolution.</p>
+        <p className="text-xs text-slate-300">Scrub commit history and inspect repository state evolution.</p>
       </header>
 
       <input
@@ -42,7 +42,7 @@ export default function TimeMachine({ state, onStateChange }: TimeMachineProps) 
         key={current?.id}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm"
+        className="surface-soft rounded-xl p-4 text-sm"
       >
         {current ? (
           <>
@@ -50,7 +50,7 @@ export default function TimeMachine({ state, onStateChange }: TimeMachineProps) 
             <p className="mt-1">{current.message}</p>
             <p className="mt-2 text-xs text-slate-400">Branch: {current.branch}</p>
             <p className="mt-2 text-xs text-slate-400">
-              Snapshot files: {Object.keys(current.snapshot).length} | Timeline position: {cursor + 1}/{timeline.length}
+              Snapshot files: {Object.keys(current.snapshot).length} | Position: {cursor + 1}/{timeline.length}
             </p>
           </>
         ) : (

@@ -11,7 +11,10 @@ interface TerminalSandboxProps {
 
 export default function TerminalSandbox({ state, onStateChange }: TerminalSandboxProps) {
   const [input, setInput] = useState('');
-  const [history, setHistory] = useState<string[]>(['Type `help` or run a git command.']);
+  const [history, setHistory] = useState<string[]>([
+    'Sandbox booted. Type help or run a git command.',
+    'Try: git branch feature'
+  ]);
 
   const prompt = useMemo(() => `${state.currentBranch} $`, [state.currentBranch]);
 
@@ -23,22 +26,29 @@ export default function TerminalSandbox({ state, onStateChange }: TerminalSandbo
     const result = executeGitCommand(state, raw);
     onStateChange(result.nextState);
 
-    setHistory((prev) => [
-      ...prev,
-      `${prompt} ${raw}`,
-      result.output || (result.success ? 'OK' : 'No output')
-    ]);
+    setHistory((prev) => [...prev, `${prompt} ${raw}`, result.output || (result.success ? 'OK' : 'No output')]);
     setInput('');
   };
 
   return (
-    <section className="panel flex h-full flex-col p-4">
+    <section className="surface flex h-full flex-col rounded-2xl p-4">
       <header className="mb-3 flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Live Git Sandbox</h3>
-        <p className="font-mono text-xs text-slate-400">Client-side simulator</p>
+        <div>
+          <h3 className="text-lg font-semibold">Live Git Sandbox</h3>
+          <p className="text-xs text-slate-400">Command interpreter + state machine</p>
+        </div>
+        <p className="rounded-full border border-gitGreen/30 bg-gitGreen/10 px-2 py-1 font-mono text-[11px] text-gitGreen">
+          client runtime
+        </p>
       </header>
 
-      <div className="mb-4 flex-1 overflow-auto rounded-xl border border-white/10 bg-black/50 p-3 font-mono text-xs text-slate-200">
+      <div className="mb-4 flex gap-2 text-[11px] text-slate-400">
+        <span className="rounded-full border border-white/10 px-2 py-1">graph sync</span>
+        <span className="rounded-full border border-white/10 px-2 py-1">reflog tracking</span>
+        <span className="rounded-full border border-white/10 px-2 py-1">challenge aware</span>
+      </div>
+
+      <div className="surface-soft mb-4 flex-1 overflow-auto rounded-xl p-3 font-mono text-xs text-slate-200">
         {history.map((line, index) => (
           <p key={`${line}-${index}`} className="whitespace-pre-wrap leading-relaxed">
             {line}
@@ -46,12 +56,12 @@ export default function TerminalSandbox({ state, onStateChange }: TerminalSandbo
         ))}
       </div>
 
-      <form onSubmit={submitCommand} className="flex items-center gap-2 rounded-xl border border-gitBlue/40 bg-black/60 p-2">
-        <span className="font-mono text-xs text-gitBlue">{prompt}</span>
+      <form onSubmit={submitCommand} className="surface-soft flex items-center gap-2 rounded-xl p-2">
+        <span className="rounded-md bg-gitBlue/15 px-2 py-1 font-mono text-xs text-gitBlue">{prompt}</span>
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="git branch feature"
+          placeholder="git commit -m \"feature\""
           className="w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-slate-500"
         />
       </form>

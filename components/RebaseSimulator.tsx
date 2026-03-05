@@ -31,18 +31,18 @@ export default function RebaseSimulator({ state, onStateChange }: RebaseSimulato
   };
 
   return (
-    <section className="panel p-5">
+    <section className="surface rounded-2xl p-5">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-xl font-semibold">Git Rebase Simulator</h3>
-          <p className="text-xs text-slate-300">Interactive rebase commands: pick, reword, edit, squash, fixup, drop.</p>
+          <p className="text-xs text-slate-300">pick, reword, edit, squash, fixup, drop</p>
         </div>
 
         <div className="flex items-center gap-2">
           <select
             value={sequence}
             onChange={(event) => setSequence(event.target.value as InteractiveRebaseAction)}
-            className="rounded-lg border border-white/10 bg-black/40 px-2 py-1 font-mono text-xs"
+            className="surface-soft rounded-lg px-2 py-1 font-mono text-xs"
           >
             {actions.map((action) => (
               <option key={action} value={action}>
@@ -61,7 +61,7 @@ export default function RebaseSimulator({ state, onStateChange }: RebaseSimulato
 
       <div className="grid gap-2 text-xs">
         {commits.map((commit, index) => (
-          <div key={commit.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-black/25 px-3 py-2">
+          <div key={commit.id} className="surface-soft flex items-center justify-between rounded-lg px-3 py-2">
             <p className="font-mono text-slate-300">
               {index === 0 ? 'pick' : sequence} {commit.id} {commit.message}
             </p>

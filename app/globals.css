@@ -4,6 +4,14 @@
 
 :root {
   color-scheme: dark;
+  --bg-0: #060b12;
+  --bg-1: #0d1117;
+  --bg-2: #161b22;
+  --line: rgba(190, 220, 255, 0.14);
+  --text: #e6edf3;
+  --muted: #95a6bc;
+  --green: #238636;
+  --blue: #58a6ff;
 }
 
 * {
@@ -12,11 +20,43 @@
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 15% 15%, rgba(88, 166, 255, 0.14), transparent 35%),
-    radial-gradient(circle at 80% 10%, rgba(35, 134, 54, 0.16), transparent 32%),
-    #0d1117;
-  color: #e6edf3;
+  min-height: 100vh;
+  background-color: var(--bg-0);
+  color: var(--text);
+  background-image:
+    radial-gradient(70rem 40rem at 8% -5%, rgba(88, 166, 255, 0.22), transparent 58%),
+    radial-gradient(60rem 28rem at 85% -10%, rgba(35, 134, 54, 0.16), transparent 54%),
+    radial-gradient(44rem 26rem at 50% 130%, rgba(70, 108, 255, 0.12), transparent 65%),
+    linear-gradient(180deg, #08101a 0%, #060b12 55%, #06090f 100%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(rgba(130, 170, 220, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(130, 170, 220, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at 50% 28%, black 32%, transparent 92%);
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.22;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px,
+    transparent 4px
+  );
 }
 
 .panel {
@@ -25,4 +65,53 @@ body {
 
 .grid-bg {
   background-size: 24px 24px;
+}
+
+.surface {
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(160deg, rgba(18, 29, 44, 0.82), rgba(9, 14, 22, 0.82)),
+    linear-gradient(90deg, rgba(88, 166, 255, 0.06), rgba(35, 134, 54, 0.04));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 12px 48px rgba(0, 0, 0, 0.4);
+}
+
+.surface-soft {
+  border: 1px solid rgba(144, 179, 217, 0.14);
+  background: rgba(9, 14, 22, 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.headline {
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+.git-chip {
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  background: linear-gradient(120deg, rgba(88, 166, 255, 0.2), rgba(8, 18, 28, 0.3));
+  color: #9fcaff;
+}
+
+.git-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.git-sheen::before {
+  content: '';
+  position: absolute;
+  left: -120%;
+  top: 0;
+  width: 80%;
+  height: 100%;
+  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: sweep 4.8s linear infinite;
+}
+
+@keyframes sweep {
+  to {
+    left: 140%;
+  }
 }

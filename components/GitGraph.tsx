@@ -24,12 +24,18 @@ export default function GitGraph({ state }: GitGraphProps) {
     const height = canvas.height;
     context.clearRect(0, 0, width, height);
 
-    for (let i = 0; i < 90; i += 1) {
+    const gradient = context.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, 'rgba(88,166,255,0.08)');
+    gradient.addColorStop(1, 'rgba(35,134,54,0.04)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, width, height);
+
+    for (let i = 0; i < 110; i += 1) {
       const x = (Math.sin(i * 98.21) + 1) * 0.5 * width;
       const y = (Math.cos(i * 46.11) + 1) * 0.5 * height;
-      context.fillStyle = i % 3 === 0 ? 'rgba(88,166,255,0.2)' : 'rgba(35,134,54,0.12)';
+      context.fillStyle = i % 3 === 0 ? 'rgba(88,166,255,0.24)' : 'rgba(35,134,54,0.16)';
       context.beginPath();
-      context.arc(x, y, i % 4 === 0 ? 1.8 : 1, 0, Math.PI * 2);
+      context.arc(x, y, i % 4 === 0 ? 2 : 1.2, 0, Math.PI * 2);
       context.fill();
     }
   }, [state.HEAD, commits.length]);
@@ -40,8 +46,8 @@ export default function GitGraph({ state }: GitGraphProps) {
     state.branches.find((branch) => branch.name === branchName)?.color ?? '#58A6FF';
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#0b0f14]" style={{ minHeight: 520 }}>
-      <canvas ref={canvasRef} width={980} height={560} className="absolute inset-0 h-full w-full opacity-80" />
+    <div className="surface-soft relative overflow-hidden rounded-xl" style={{ minHeight: 520 }}>
+      <canvas ref={canvasRef} width={980} height={560} className="absolute inset-0 h-full w-full opacity-95" />
       <svg className="relative z-10 h-full w-full" viewBox="0 0 980 560" preserveAspectRatio="xMidYMid meet">
         {commits.map((commit) =>
           commit.parentIds.map((parentId) => {
@@ -64,8 +70,8 @@ export default function GitGraph({ state }: GitGraphProps) {
                 key={`${commit.id}-${parentId}`}
                 d={pathFactory(points) ?? ''}
                 stroke={branchColor(commit.branch)}
-                strokeWidth={2}
-                strokeOpacity={0.8}
+                strokeWidth={2.6}
+                strokeOpacity={0.86}
                 fill="none"
               />
             );
@@ -76,6 +82,9 @@ export default function GitGraph({ state }: GitGraphProps) {
           const isHead = state.HEAD === commit.id;
           return (
             <g key={commit.id}>
+              {isHead ? (
+                <circle cx={commit.x} cy={commit.y} r={16} fill={branchColor(commit.branch)} fillOpacity={0.2} />
+              ) : null}
               <motion.circle
                 cx={commit.x}
                 cy={commit.y}
