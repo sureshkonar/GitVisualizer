@@ -3,7 +3,11 @@
 import { motion } from 'framer-motion';
 import { learningLevels } from '@/lib/gitChallenges';
 
-export default function LearningPath() {
+interface LearningPathProps {
+  focusCommands?: string[];
+}
+
+export default function LearningPath({ focusCommands = [] }: LearningPathProps) {
   return (
     <section className="surface rounded-3xl p-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -28,7 +32,12 @@ export default function LearningPath() {
             <h3 className="mb-3 text-base font-semibold">{level.title}</h3>
             <ul className="mb-4 space-y-1 text-xs text-slate-300">
               {level.commands.map((command) => (
-                <li key={command} className="font-mono text-[11px]">
+                <li
+                  key={command}
+                  className={`font-mono text-[11px] ${
+                    focusCommands.includes(command) ? 'text-gitGreen' : ''
+                  }`}
+                >
                   {command}
                 </li>
               ))}

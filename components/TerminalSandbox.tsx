@@ -7,9 +7,10 @@ import { RepoState } from '@/lib/gitEngine';
 type TerminalSandboxProps = {
   state: RepoState;
   onStateChange: (state: RepoState) => void;
+  onCommand?: (command: string, success: boolean) => void;
 };
 
-export default function TerminalSandbox({ state, onStateChange }: TerminalSandboxProps) {
+export default function TerminalSandbox({ state, onStateChange, onCommand }: TerminalSandboxProps) {
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<string[]>([
     'Sandbox booted. Type help or run a git command.',
@@ -26,6 +27,7 @@ export default function TerminalSandbox({ state, onStateChange }: TerminalSandbo
 
     const result = executeGitCommand(state, raw);
     onStateChange(result.nextState);
+    onCommand?.(raw, result.success);
 
     const output = result.output || (result.success ? 'OK' : 'No output');
     setHistory((prev) => [...prev, `${prompt} ${raw}`, output]);
