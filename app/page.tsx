@@ -74,7 +74,7 @@ export default function HomePage() {
     const storedCommands = window.localStorage.getItem('gitviz_learned');
     if (storedLevel) setExperienceLevel(storedLevel);
     if (storedCommands) setLearnedCommands(JSON.parse(storedCommands));
-    if (!storedLevel) setShowOnboarding(true);
+    setShowOnboarding(true);
   }, []);
 
   const handleLevelSelect = (level: ExperienceLevel) => {
