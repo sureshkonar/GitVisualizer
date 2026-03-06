@@ -149,6 +149,7 @@ export default function HomePage() {
   const [dailyCompleted, setDailyCompleted] = useState(false);
   const [focusedMissionId, setFocusedMissionId] = useState<string | null>(null);
   const [coachTip, setCoachTip] = useState('Run a command to get contextual Git coaching.');
+  const [sandboxResetSignal, setSandboxResetSignal] = useState(0);
 
   const todayMission = useMemo(() => missionOfTheDay(), []);
   const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -253,6 +254,14 @@ export default function HomePage() {
     setRepoState(createInitialRepoState());
     setCommandHistory([]);
     setCoachTip('Lab reset. Start with git status and follow mission objectives.');
+    setSandboxResetSignal((value) => value + 1);
+  };
+
+  const startFreshAttempt = () => {
+    setRepoState(createInitialRepoState());
+    setCommandHistory([]);
+    setCoachTip('Fresh attempt started. Follow mission objectives in the sandbox.');
+    setSandboxResetSignal((value) => value + 1);
   };
 
   const handleMissionClear = (
@@ -403,6 +412,7 @@ export default function HomePage() {
           <TerminalSandbox
             state={repoState}
             onStateChange={setRepoState}
+            resetSignal={sandboxResetSignal}
             onCommand={(command, success, nextState) =>
               trackCommandEvent(command, success, 'sandbox', repoState, nextState)
             }
@@ -430,6 +440,7 @@ export default function HomePage() {
           repoState={repoState}
           commandHistory={commandHistory}
           onResetLab={resetLab}
+          onStartFreshAttempt={startFreshAttempt}
           clearedMissionIds={clearedMissions}
           onMissionClear={handleMissionClear}
           focusMissionId={focusedMissionId}

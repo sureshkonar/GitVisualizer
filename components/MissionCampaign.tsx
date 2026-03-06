@@ -4,11 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RepoState } from '@/lib/gitEngine';
 import { CommandEvent, evaluateMission, gitMissions } from '@/lib/gitMissions';
+import MissionReplay from './MissionReplay';
+import MissionShareCard from './MissionShareCard';
 
 interface MissionCampaignProps {
   repoState: RepoState;
   commandHistory: CommandEvent[];
   onResetLab: () => void;
+  onStartFreshAttempt: () => void;
   clearedMissionIds: string[];
   onMissionClear: (missionId: string, score: number, stars: 1 | 2 | 3, rewardXp: number) => void;
   focusMissionId?: string | null;
@@ -18,6 +21,7 @@ export default function MissionCampaign({
   repoState,
   commandHistory,
   onResetLab,
+  onStartFreshAttempt,
   clearedMissionIds,
   onMissionClear,
   focusMissionId
@@ -25,7 +29,7 @@ export default function MissionCampaign({
   const [active, setActive] = useState(0);
   const [attemptStartIndex, setAttemptStartIndex] = useState(0);
   const [attemptStartTime, setAttemptStartTime] = useState(() => Date.now());
-  const [bestScoreByMission, setBestScoreByMission] = useState<Record<string, number>>({});
+  const [, setBestScoreByMission] = useState<Record<string, number>>({});
   const [hintLevel, setHintLevel] = useState(0);
 
   const mission = gitMissions[active];
@@ -76,6 +80,14 @@ export default function MissionCampaign({
     setAttemptStartIndex(0);
     setAttemptStartTime(Date.now());
     setHintLevel(0);
+  };
+
+  const startFreshAttempt = () => {
+    onStartFreshAttempt();
+    setAttemptStartIndex(0);
+    setAttemptStartTime(Date.now());
+    setHintLevel(0);
+    window.location.hash = 'sandbox';
   };
 
   const nextMission = () => {
@@ -175,7 +187,7 @@ export default function MissionCampaign({
           <button onClick={resetAttempt} className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-slate-300">
             Reset Lab
           </button>
-          <button onClick={() => setAttemptStartIndex(commandHistory.length)} className="rounded-lg border border-gitBlue/50 px-3 py-1.5 text-xs text-gitBlue">
+          <button onClick={startFreshAttempt} className="rounded-lg border border-gitBlue/50 px-3 py-1.5 text-xs text-gitBlue">
             Start Fresh Attempt
           </button>
           {evaluation.passed ? (
@@ -193,6 +205,23 @@ export default function MissionCampaign({
             <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-300">
               Keep going - complete all objectives
             </span>
+          )}
+        </div>
+
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          <MissionReplay events={attemptEvents} />
+          {evaluation.passed ? (
+            <MissionShareCard
+              missionId={mission.id}
+              missionTitle={mission.title}
+              score={evaluation.score}
+              stars={evaluation.stars}
+              events={attemptEvents}
+            />
+          ) : (
+            <div className="rounded-lg border border-white/10 p-3 text-xs text-slate-400">
+              Complete the mission to unlock a shareable result card.
+            </div>
           )}
         </div>
       </motion.article>

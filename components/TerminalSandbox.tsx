@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { RepoState } from '@/lib/gitEngine';
 
@@ -8,14 +8,22 @@ type TerminalSandboxProps = {
   state: RepoState;
   onStateChange: (state: RepoState) => void;
   onCommand?: (command: string, success: boolean, nextState: RepoState) => void;
+  resetSignal?: number;
 };
 
-export default function TerminalSandbox({ state, onStateChange, onCommand }: TerminalSandboxProps) {
+const INITIAL_HISTORY = [
+  'Sandbox booted. Type help or run a git command.',
+  'Try: git branch feature'
+];
+
+export default function TerminalSandbox({ state, onStateChange, onCommand, resetSignal = 0 }: TerminalSandboxProps) {
   const [input, setInput] = useState('');
-  const [history, setHistory] = useState<string[]>([
-    'Sandbox booted. Type help or run a git command.',
-    'Try: git branch feature'
-  ]);
+  const [history, setHistory] = useState<string[]>(INITIAL_HISTORY);
+
+  useEffect(() => {
+    setInput('');
+    setHistory(INITIAL_HISTORY);
+  }, [resetSignal]);
 
   const prompt = useMemo(() => `${state.currentBranch} $`, [state.currentBranch]);
 
