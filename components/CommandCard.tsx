@@ -30,6 +30,8 @@ interface CommandCardProps {
   afterGraph: DiagramState;
 }
 
+export type { CommandCardProps };
+
 const branchColor = {
   main: '#238636',
   feature: '#58A6FF',

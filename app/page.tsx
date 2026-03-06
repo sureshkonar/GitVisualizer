@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import CommandCard from '@/components/CommandCard';
+import type { CommandCardProps } from '@/components/CommandCard';
 import CommandExplorer from '@/components/CommandExplorer';
 import LearningPath from '@/components/LearningPath';
 import OnboardingModal from '@/components/OnboardingModal';
@@ -25,7 +26,7 @@ const ChallengeMode = dynamic(() => import('@/components/ChallengeMode'), {
   loading: () => <div className="surface rounded-3xl p-5 text-sm text-slate-400">Loading Challenge Arena...</div>
 });
 
-const commandCards = [
+const commandCards: CommandCardProps[] = [
   {
     command: 'git merge feature',
     summary: 'Integrates feature work into main. If histories diverged, Git creates a merge node joining both parents.',
