@@ -403,22 +403,24 @@ export default function HomePage() {
         />
       </section>
 
-      <section id="sandbox" className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <motion.div {...reveal} className="min-h-[560px]">
+      <section id="sandbox" className="grid items-stretch gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <motion.div {...reveal} className="flex min-h-[640px] flex-col">
           <div className="surface-soft mb-3 rounded-xl p-3 text-xs text-slate-200">
             <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Git Coach</p>
             <p>{coachTip}</p>
           </div>
-          <TerminalSandbox
-            state={repoState}
-            onStateChange={setRepoState}
-            resetSignal={sandboxResetSignal}
-            onCommand={(command, success, nextState) =>
-              trackCommandEvent(command, success, 'sandbox', repoState, nextState)
-            }
-          />
+          <div className="min-h-0 flex-1">
+            <TerminalSandbox
+              state={repoState}
+              onStateChange={setRepoState}
+              resetSignal={sandboxResetSignal}
+              onCommand={(command, success, nextState) =>
+                trackCommandEvent(command, success, 'sandbox', repoState, nextState)
+              }
+            />
+          </div>
         </motion.div>
-        <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.07 }} className="min-h-[560px]">
+        <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.07 }} className="min-h-[640px]">
           <RepoVisualizer state={repoState} />
         </motion.div>
       </section>
