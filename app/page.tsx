@@ -7,12 +7,14 @@ import CommandCard from '@/components/CommandCard';
 import type { CommandCardProps } from '@/components/CommandCard';
 import CommandExplorer from '@/components/CommandExplorer';
 import LearningPath from '@/components/LearningPath';
+import MissionCampaign from '@/components/MissionCampaign';
 import OnboardingModal from '@/components/OnboardingModal';
 import RepoVisualizer from '@/components/RepoVisualizer';
 import TerminalSandbox from '@/components/TerminalSandbox';
 import { RepoState, createInitialRepoState } from '@/lib/gitEngine';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { ExperienceLevel, onboardingTracks } from '@/lib/gitChallenges';
+import { CommandEvent } from '@/lib/gitMissions';
 
 const RebaseSimulator = dynamic(() => import('@/components/RebaseSimulator'), {
   loading: () => <div className="surface rounded-3xl p-5 text-sm text-slate-400">Loading Rebase Lab...</div>
@@ -138,6 +140,7 @@ export default function HomePage() {
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [learnedCommands, setLearnedCommands] = useState<string[]>([]);
+  const [commandHistory, setCommandHistory] = useState<CommandEvent[]>([]);
 
   const stats = useMemo(
     () => ({
@@ -176,6 +179,18 @@ export default function HomePage() {
     });
   };
 
+  const trackCommandEvent = (
+    rawCommand: string,
+    success: boolean,
+    source: 'sandbox' | 'explorer'
+  ) => {
+    setCommandHistory((prev) => [
+      ...prev,
+      { raw: rawCommand, success, source, timestamp: Date.now() }
+    ]);
+    registerCommand(rawCommand, success);
+  };
+
   const mapSimulationCommand = (command: string): string => {
     const examples: Record<string, string> = {
       'git branch': 'git branch feature',
@@ -207,8 +222,13 @@ export default function HomePage() {
     const runnable = mapSimulationCommand(baseCommand);
     const result = executeGitCommand(repoState, runnable);
     setRepoState(result.nextState);
-    registerCommand(runnable, result.success);
+    trackCommandEvent(runnable, result.success, 'explorer');
     window.location.hash = 'sandbox';
+  };
+
+  const resetLab = () => {
+    setRepoState(createInitialRepoState());
+    setCommandHistory([]);
   };
 
   const levelTrack = experienceLevel ? onboardingTracks[experienceLevel] : [];
@@ -305,7 +325,11 @@ export default function HomePage() {
 
       <section id="sandbox" className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
         <motion.div {...reveal} className="min-h-[560px]">
-          <TerminalSandbox state={repoState} onStateChange={setRepoState} onCommand={registerCommand} />
+          <TerminalSandbox
+            state={repoState}
+            onStateChange={setRepoState}
+            onCommand={(command, success) => trackCommandEvent(command, success, 'sandbox')}
+          />
         </motion.div>
         <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.07 }} className="min-h-[560px]">
           <RepoVisualizer state={repoState} />
@@ -322,6 +346,14 @@ export default function HomePage() {
         <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.1 }}>
           <ChallengeMode />
         </motion.div>
+      </section>
+
+      <section>
+        <MissionCampaign
+          repoState={repoState}
+          commandHistory={commandHistory}
+          onResetLab={resetLab}
+        />
       </section>
       <section className="surface rounded-2xl p-5">
         <h3 className="mb-2 text-xl font-semibold">Achievements</h3>
