@@ -16,7 +16,7 @@ import { RepoState, createInitialRepoState } from '@/lib/gitEngine';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { ExperienceLevel, onboardingTracks } from '@/lib/gitChallenges';
 import { buildCoachFeedback } from '@/lib/gitCoach';
-import { CommandEvent, missionOfTheDay } from '@/lib/gitMissions';
+import { CommandEvent, missionOfTheDay, gitMissions } from '@/lib/gitMissions';
 
 const RebaseSimulator = dynamic(() => import('@/components/RebaseSimulator'), {
   loading: () => <div className="surface rounded-3xl p-5 text-sm text-slate-400">Loading Rebase Lab...</div>
@@ -29,6 +29,8 @@ const TimeMachine = dynamic(() => import('@/components/TimeMachine'), {
 const ChallengeMode = dynamic(() => import('@/components/ChallengeMode'), {
   loading: () => <div className="surface rounded-3xl p-5 text-sm text-slate-400">Loading Challenge Arena...</div>
 });
+
+type AppView = 'learn' | 'practice' | 'sandbox' | 'progress';
 
 const commandCards: CommandCardProps[] = [
   {
@@ -130,14 +132,22 @@ const commandCards: CommandCardProps[] = [
   }
 ];
 
+const navItems: { id: AppView; label: string }[] = [
+  { id: 'learn', label: 'Learn' },
+  { id: 'practice', label: 'Practice' },
+  { id: 'sandbox', label: 'Sandbox' },
+  { id: 'progress', label: 'Progress' }
+];
+
 const reveal = {
   initial: { opacity: 0, y: 16 },
   whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, amount: 0.25 },
-  transition: { duration: 0.5 }
+  viewport: { once: true, amount: 0.2 },
+  transition: { duration: 0.45 }
 };
 
 export default function HomePage() {
+  const [view, setView] = useState<AppView>('learn');
   const [repoState, setRepoState] = useState<RepoState>(() => createInitialRepoState());
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -247,7 +257,7 @@ export default function HomePage() {
     const result = executeGitCommand(repoState, runnable);
     setRepoState(result.nextState);
     trackCommandEvent(runnable, result.success, 'explorer', before, result.nextState);
-    window.location.hash = 'sandbox';
+    setView('sandbox');
   };
 
   const resetLab = () => {
@@ -262,6 +272,7 @@ export default function HomePage() {
     setCommandHistory([]);
     setCoachTip('Fresh attempt started. Follow mission objectives in the sandbox.');
     setSandboxResetSignal((value) => value + 1);
+    setView('sandbox');
   };
 
   const handleMissionClear = (
@@ -307,161 +318,238 @@ export default function HomePage() {
     learnedCommands.includes('git rebase') ? 'Rebase Ninja' : null
   ].filter(Boolean) as string[];
 
+  const nextMission = useMemo(
+    () => gitMissions.find((mission) => !clearedMissions.includes(mission.id)) ?? gitMissions[gitMissions.length - 1],
+    [clearedMissions]
+  );
+
+  const recommendedCommands = useMemo(
+    () => levelTrack.filter((command) => !learnedCommands.includes(command)).slice(0, 6),
+    [levelTrack, learnedCommands]
+  );
+
   return (
-    <main className="mx-auto max-w-[1500px] space-y-8 px-4 py-6 md:px-8 md:py-8">
+    <main className="mx-auto max-w-[1500px] space-y-6 px-4 py-6 md:px-8 md:py-8">
       <OnboardingModal open={showOnboarding} onSelect={handleLevelSelect} />
-      <section className="surface rounded-3xl p-4 md:p-6">
-        <div className="surface-soft mb-4 flex items-center justify-between rounded-2xl px-4 py-3">
-          <div className="flex items-center gap-3">
-            <span className="git-chip rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]">
-              Git Visualizer Lab
-            </span>
-            <p className="hidden text-xs text-slate-400 md:block">Interactive Git learning engine and simulation playground</p>
+
+      <section className="surface rounded-2xl p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="git-chip rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]">Git Visualizer Lab</span>
+            <p className="text-xs text-slate-400">Guided Git learning journey</p>
           </div>
-          <div className="font-mono text-xs text-slate-300">v0.1 / static export</div>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
-          <motion.div {...reveal} className="surface-soft git-sheen rounded-3xl p-7 md:p-10">
-            <p className="mb-4 inline-flex rounded-full border border-gitGreen/40 bg-gitGreen/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-gitGreen">
-              Build Git intuition visually
-            </p>
-            <h1 className="headline mb-4 text-5xl font-semibold md:text-7xl">Understand Git Visually</h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-slate-300 md:text-base">
-              A real-time Git simulation environment where commit graphs animate, branches evolve, rebases rewrite
-              history, and terminal commands immediately reshape repository state.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-3">
-              <a
-                href="#learning"
-                className="rounded-xl bg-gitGreen px-5 py-2.5 text-sm font-semibold text-black transition hover:brightness-110"
+          <div className="flex flex-wrap gap-2">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setView(item.id)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  view === item.id
+                    ? 'bg-gitBlue/20 text-gitBlue border border-gitBlue/50'
+                    : 'border border-white/15 text-slate-300'
+                }`}
               >
-                Start Learning
-              </a>
-              <a
-                href="#sandbox"
-                className="rounded-xl border border-gitBlue/50 bg-gitBlue/10 px-5 py-2.5 text-sm font-semibold text-gitBlue transition hover:bg-gitBlue/20"
-              >
-                Open Git Sandbox
-              </a>
-            </div>
-
-            <div className="mt-7 grid max-w-xl grid-cols-3 gap-2">
-              <div className="surface-soft rounded-xl px-4 py-3">
-                <p className="font-mono text-2xl text-gitBlue">{stats.commits}</p>
-                <p className="text-xs text-slate-400">Commits</p>
-              </div>
-              <div className="surface-soft rounded-xl px-4 py-3">
-                <p className="font-mono text-2xl text-gitBlue">{stats.branches}</p>
-                <p className="text-xs text-slate-400">Branches</p>
-              </div>
-              <div className="surface-soft rounded-xl px-4 py-3">
-                <p className="font-mono text-2xl text-gitBlue">{stats.stash}</p>
-                <p className="text-xs text-slate-400">Stashes</p>
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded-full border border-gitGreen/40 bg-gitGreen/10 px-3 py-1 text-gitGreen">
-                XP {stats.xp}
-              </span>
-              <span className="rounded-full border border-gitBlue/40 bg-gitBlue/10 px-3 py-1 text-gitBlue">
-                Track: {experienceLevel ?? 'Not selected'}
-              </span>
-            </div>
-          </motion.div>
-
-          <motion.div {...reveal} transition={{ duration: 0.55, delay: 0.08 }} className="surface-soft rounded-3xl p-4">
-            <RepoVisualizer state={repoState} />
-          </motion.div>
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
-      <motion.section {...reveal} id="learning">
-        <LearningPath focusCommands={levelTrack} />
-      </motion.section>
+      {view === 'learn' ? (
+        <>
+          <motion.section {...reveal} className="surface rounded-3xl p-6 md:p-8">
+            <p className="mb-3 inline-flex rounded-full border border-gitGreen/40 bg-gitGreen/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-gitGreen">Guided Learn Mode (Recommended)</p>
+            <h1 className="headline mb-3 text-4xl font-semibold md:text-6xl">Learn Git Through Missions</h1>
+            <p className="max-w-3xl text-sm text-slate-300 md:text-base">
+              Start with one clear mission at a time. Run commands, watch the graph react, and progress from beginner workflows to advanced history surgery.
+            </p>
 
-      <motion.section {...reveal}>
-        <CommandExplorer onSelectCommand={simulateFromExplorer} />
-      </motion.section>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="surface-soft rounded-xl p-3">
+                <p className="text-xs text-slate-400">Current Track</p>
+                <p className="font-semibold text-slate-100">{experienceLevel ?? 'Choose in onboarding'}</p>
+              </div>
+              <div className="surface-soft rounded-xl p-3">
+                <p className="text-xs text-slate-400">Next Mission</p>
+                <p className="font-semibold text-slate-100">{nextMission.title}</p>
+              </div>
+              <div className="surface-soft rounded-xl p-3">
+                <p className="text-xs text-slate-400">Total XP</p>
+                <p className="font-semibold text-gitGreen">{stats.xp}</p>
+              </div>
+            </div>
 
-      <motion.section {...reveal} transition={{ duration: 0.45 }} className="grid gap-4 xl:grid-cols-3">
-        {commandCards.map((card) => (
-          <CommandCard key={card.command} {...card} />
-        ))}
-      </motion.section>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  setFocusedMissionId(nextMission.id);
+                  setView('learn');
+                  window.location.hash = 'missions';
+                }}
+                className="rounded-xl bg-gitGreen px-4 py-2 text-sm font-semibold text-black"
+              >
+                Continue Mission
+              </button>
+              <button onClick={() => setView('sandbox')} className="rounded-xl border border-gitBlue/50 px-4 py-2 text-sm font-semibold text-gitBlue">
+                Open Sandbox
+              </button>
+            </div>
+          </motion.section>
 
-      <section>
-        <DailyChallenge
-          mission={todayMission}
-          isCompletedToday={dailyCompleted}
-          streak={dailyStreak}
-          onJumpToMission={(missionId) => {
-            setFocusedMissionId(missionId);
-            window.location.hash = 'missions';
-          }}
-        />
-      </section>
-
-      <section id="sandbox" className="grid items-stretch gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <motion.div {...reveal} className="flex min-h-[640px] flex-col">
-          <div className="surface-soft mb-3 rounded-xl p-3 text-xs text-slate-200">
-            <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Git Coach</p>
-            <p>{coachTip}</p>
-          </div>
-          <div className="min-h-0 flex-1">
-            <TerminalSandbox
-              state={repoState}
-              onStateChange={setRepoState}
-              resetSignal={sandboxResetSignal}
-              onCommand={(command, success, nextState) =>
-                trackCommandEvent(command, success, 'sandbox', repoState, nextState)
-              }
+          <motion.section {...reveal} id="missions">
+            <MissionCampaign
+              repoState={repoState}
+              commandHistory={commandHistory}
+              onResetLab={resetLab}
+              onStartFreshAttempt={startFreshAttempt}
+              clearedMissionIds={clearedMissions}
+              onMissionClear={handleMissionClear}
+              focusMissionId={focusedMissionId}
             />
-          </div>
-        </motion.div>
-        <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.07 }} className="min-h-[640px]">
-          <RepoVisualizer state={repoState} />
-        </motion.div>
-      </section>
+          </motion.section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <motion.div {...reveal}>
-          <RebaseSimulator state={repoState} onStateChange={setRepoState} />
-        </motion.div>
-        <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.06 }}>
-          <TimeMachine state={repoState} onStateChange={setRepoState} />
-        </motion.div>
-        <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.1 }}>
-          <ChallengeMode />
-        </motion.div>
-      </section>
+          <motion.section {...reveal}>
+            <LearningPath focusCommands={levelTrack} />
+          </motion.section>
+        </>
+      ) : null}
 
-      <section id="missions">
-        <MissionCampaign
-          repoState={repoState}
-          commandHistory={commandHistory}
-          onResetLab={resetLab}
-          onStartFreshAttempt={startFreshAttempt}
-          clearedMissionIds={clearedMissions}
-          onMissionClear={handleMissionClear}
-          focusMissionId={focusedMissionId}
-        />
-      </section>
-      <section className="surface rounded-2xl p-5">
-        <h3 className="mb-2 text-xl font-semibold">Achievements</h3>
-        <div className="flex flex-wrap gap-2">
-          {achievements.length ? (
-            achievements.map((item) => (
-              <span key={item} className="rounded-full border border-gitGreen/40 bg-gitGreen/10 px-3 py-1 text-xs text-gitGreen">
-                {item}
-              </span>
-            ))
-          ) : (
-            <p className="text-xs text-slate-400">No badges unlocked yet. Start with git status and git commit.</p>
-          )}
-        </div>
-      </section>
+      {view === 'practice' ? (
+        <>
+          <motion.section {...reveal}>
+            <DailyChallenge
+              mission={todayMission}
+              isCompletedToday={dailyCompleted}
+              streak={dailyStreak}
+              onJumpToMission={(missionId) => {
+                setFocusedMissionId(missionId);
+                setView('learn');
+              }}
+            />
+          </motion.section>
+
+          <section className="grid gap-4 xl:grid-cols-3">
+            <motion.div {...reveal}>
+              <ChallengeMode />
+            </motion.div>
+            <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.06 }}>
+              <RebaseSimulator state={repoState} onStateChange={setRepoState} />
+            </motion.div>
+            <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.1 }}>
+              <TimeMachine state={repoState} onStateChange={setRepoState} />
+            </motion.div>
+          </section>
+
+          <motion.section {...reveal} transition={{ duration: 0.45 }} className="grid gap-4 xl:grid-cols-3">
+            {commandCards.map((card) => (
+              <CommandCard key={card.command} {...card} />
+            ))}
+          </motion.section>
+        </>
+      ) : null}
+
+      {view === 'sandbox' ? (
+        <>
+          <motion.section {...reveal}>
+            <CommandExplorer onSelectCommand={simulateFromExplorer} />
+          </motion.section>
+
+          <section id="sandbox" className="grid items-stretch gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+            <motion.div {...reveal} className="flex min-h-[640px] flex-col">
+              <div className="surface-soft mb-3 rounded-xl p-3 text-xs text-slate-200">
+                <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Git Coach</p>
+                <p>{coachTip}</p>
+              </div>
+              <div className="min-h-0 flex-1">
+                <TerminalSandbox
+                  state={repoState}
+                  onStateChange={setRepoState}
+                  resetSignal={sandboxResetSignal}
+                  onCommand={(command, success, nextState) =>
+                    trackCommandEvent(command, success, 'sandbox', repoState, nextState)
+                  }
+                />
+              </div>
+            </motion.div>
+            <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.07 }} className="min-h-[640px]">
+              <RepoVisualizer state={repoState} />
+            </motion.div>
+          </section>
+        </>
+      ) : null}
+
+      {view === 'progress' ? (
+        <>
+          <motion.section {...reveal} className="surface rounded-2xl p-5">
+            <h3 className="mb-3 text-2xl font-semibold">Progress Dashboard</h3>
+            <div className="mb-4 grid gap-3 md:grid-cols-4">
+              <div className="surface-soft rounded-xl p-3">
+                <p className="text-xs text-slate-400">Total XP</p>
+                <p className="font-mono text-xl text-gitGreen">{stats.xp}</p>
+              </div>
+              <div className="surface-soft rounded-xl p-3">
+                <p className="text-xs text-slate-400">Missions Cleared</p>
+                <p className="font-mono text-xl text-gitBlue">{clearedMissions.length}/{gitMissions.length}</p>
+              </div>
+              <div className="surface-soft rounded-xl p-3">
+                <p className="text-xs text-slate-400">Commands Mastered</p>
+                <p className="font-mono text-xl text-gitBlue">{learnedCommands.length}</p>
+              </div>
+              <div className="surface-soft rounded-xl p-3">
+                <p className="text-xs text-slate-400">Daily Streak</p>
+                <p className="font-mono text-xl text-gitGreen">{dailyStreak}</p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <p className="mb-2 text-xs uppercase tracking-widest text-slate-400">Achievements</p>
+              <div className="flex flex-wrap gap-2">
+                {achievements.length ? (
+                  achievements.map((item) => (
+                    <span key={item} className="rounded-full border border-gitGreen/40 bg-gitGreen/10 px-3 py-1 text-xs text-gitGreen">
+                      {item}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400">No badges unlocked yet. Complete missions to unlock achievements.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="surface-soft rounded-xl p-3">
+                <p className="mb-2 text-xs uppercase tracking-widest text-slate-400">Recommended Next Commands</p>
+                <div className="flex flex-wrap gap-2">
+                  {recommendedCommands.length ? (
+                    recommendedCommands.map((command) => (
+                      <span key={command} className="rounded-full border border-white/15 px-2 py-1 font-mono text-[11px] text-slate-300">
+                        {command}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400">You completed your current track recommendations.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="surface-soft rounded-xl p-3">
+                <p className="mb-2 text-xs uppercase tracking-widest text-slate-400">Cleared Missions</p>
+                <div className="max-h-36 space-y-1 overflow-auto text-xs text-slate-300">
+                  {clearedMissions.length ? (
+                    clearedMissions.map((id) => {
+                      const mission = gitMissions.find((item) => item.id === id);
+                      return <p key={id}>{mission?.level}. {mission?.title}</p>;
+                    })
+                  ) : (
+                    <p className="text-slate-400">No mission cleared yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.section>
+        </>
+      ) : null}
     </main>
   );
 }
