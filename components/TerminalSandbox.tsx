@@ -7,7 +7,7 @@ import { RepoState } from '@/lib/gitEngine';
 type TerminalSandboxProps = {
   state: RepoState;
   onStateChange: (state: RepoState) => void;
-  onCommand?: (command: string, success: boolean) => void;
+  onCommand?: (command: string, success: boolean, nextState: RepoState) => void;
 };
 
 export default function TerminalSandbox({ state, onStateChange, onCommand }: TerminalSandboxProps) {
@@ -27,7 +27,7 @@ export default function TerminalSandbox({ state, onStateChange, onCommand }: Ter
 
     const result = executeGitCommand(state, raw);
     onStateChange(result.nextState);
-    onCommand?.(raw, result.success);
+    onCommand?.(raw, result.success, result.nextState);
 
     const output = result.output || (result.success ? 'OK' : 'No output');
     setHistory((prev) => [...prev, `${prompt} ${raw}`, output]);

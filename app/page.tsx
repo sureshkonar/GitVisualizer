@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import CommandCard from '@/components/CommandCard';
 import type { CommandCardProps } from '@/components/CommandCard';
 import CommandExplorer from '@/components/CommandExplorer';
+import DailyChallenge from '@/components/DailyChallenge';
 import LearningPath from '@/components/LearningPath';
 import MissionCampaign from '@/components/MissionCampaign';
 import OnboardingModal from '@/components/OnboardingModal';
@@ -14,7 +15,8 @@ import TerminalSandbox from '@/components/TerminalSandbox';
 import { RepoState, createInitialRepoState } from '@/lib/gitEngine';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { ExperienceLevel, onboardingTracks } from '@/lib/gitChallenges';
-import { CommandEvent } from '@/lib/gitMissions';
+import { buildCoachFeedback } from '@/lib/gitCoach';
+import { CommandEvent, missionOfTheDay } from '@/lib/gitMissions';
 
 const RebaseSimulator = dynamic(() => import('@/components/RebaseSimulator'), {
   loading: () => <div className="surface rounded-3xl p-5 text-sm text-slate-400">Loading Rebase Lab...</div>
@@ -141,24 +143,41 @@ export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [learnedCommands, setLearnedCommands] = useState<string[]>([]);
   const [commandHistory, setCommandHistory] = useState<CommandEvent[]>([]);
+  const [missionXp, setMissionXp] = useState(0);
+  const [clearedMissions, setClearedMissions] = useState<string[]>([]);
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const [dailyCompleted, setDailyCompleted] = useState(false);
+  const [focusedMissionId, setFocusedMissionId] = useState<string | null>(null);
+  const [coachTip, setCoachTip] = useState('Run a command to get contextual Git coaching.');
+
+  const todayMission = useMemo(() => missionOfTheDay(), []);
+  const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const stats = useMemo(
     () => ({
       commits: repoState.commits.length,
       branches: repoState.branches.length,
       stash: repoState.stashes.length,
-      xp: learnedCommands.length * 25
+      xp: learnedCommands.length * 25 + missionXp
     }),
-    [repoState, learnedCommands.length]
+    [repoState, learnedCommands.length, missionXp]
   );
 
   useEffect(() => {
     const storedLevel = window.localStorage.getItem('gitviz_level') as ExperienceLevel | null;
     const storedCommands = window.localStorage.getItem('gitviz_learned');
+    const storedMissionXp = window.localStorage.getItem('gitviz_mission_xp');
+    const storedCleared = window.localStorage.getItem('gitviz_cleared_missions');
+    const storedStreak = window.localStorage.getItem('gitviz_daily_streak');
+    const storedDailyDate = window.localStorage.getItem('gitviz_last_daily_date');
     if (storedLevel) setExperienceLevel(storedLevel);
     if (storedCommands) setLearnedCommands(JSON.parse(storedCommands));
+    if (storedMissionXp) setMissionXp(Number(storedMissionXp));
+    if (storedCleared) setClearedMissions(JSON.parse(storedCleared));
+    if (storedStreak) setDailyStreak(Number(storedStreak));
+    if (storedDailyDate === todayKey) setDailyCompleted(true);
     setShowOnboarding(true);
-  }, []);
+  }, [todayKey]);
 
   const handleLevelSelect = (level: ExperienceLevel) => {
     setExperienceLevel(level);
@@ -182,13 +201,16 @@ export default function HomePage() {
   const trackCommandEvent = (
     rawCommand: string,
     success: boolean,
-    source: 'sandbox' | 'explorer'
+    source: 'sandbox' | 'explorer',
+    beforeState: RepoState,
+    afterState: RepoState
   ) => {
     setCommandHistory((prev) => [
       ...prev,
       { raw: rawCommand, success, source, timestamp: Date.now() }
     ]);
     registerCommand(rawCommand, success);
+    setCoachTip(buildCoachFeedback(rawCommand, success, beforeState, afterState));
   };
 
   const mapSimulationCommand = (command: string): string => {
@@ -220,15 +242,52 @@ export default function HomePage() {
 
   const simulateFromExplorer = (baseCommand: string) => {
     const runnable = mapSimulationCommand(baseCommand);
+    const before = repoState;
     const result = executeGitCommand(repoState, runnable);
     setRepoState(result.nextState);
-    trackCommandEvent(runnable, result.success, 'explorer');
+    trackCommandEvent(runnable, result.success, 'explorer', before, result.nextState);
     window.location.hash = 'sandbox';
   };
 
   const resetLab = () => {
     setRepoState(createInitialRepoState());
     setCommandHistory([]);
+    setCoachTip('Lab reset. Start with git status and follow mission objectives.');
+  };
+
+  const handleMissionClear = (
+    missionId: string,
+    _score: number,
+    _stars: 1 | 2 | 3,
+    rewardXp: number
+  ) => {
+    setClearedMissions((prev) => {
+      if (prev.includes(missionId)) return prev;
+      const next = [...prev, missionId];
+      window.localStorage.setItem('gitviz_cleared_missions', JSON.stringify(next));
+      return next;
+    });
+
+    setMissionXp((prev) => {
+      const next = prev + rewardXp;
+      window.localStorage.setItem('gitviz_mission_xp', String(next));
+      return next;
+    });
+
+    if (missionId !== todayMission.id || dailyCompleted) return;
+
+    const previousDailyDate = window.localStorage.getItem('gitviz_last_daily_date');
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayKey = yesterday.toISOString().slice(0, 10);
+
+    setDailyStreak((prev) => {
+      const next = previousDailyDate === yesterdayKey ? prev + 1 : 1;
+      window.localStorage.setItem('gitviz_daily_streak', String(next));
+      return next;
+    });
+    window.localStorage.setItem('gitviz_last_daily_date', todayKey);
+    setDailyCompleted(true);
   };
 
   const levelTrack = experienceLevel ? onboardingTracks[experienceLevel] : [];
@@ -323,12 +382,30 @@ export default function HomePage() {
         ))}
       </motion.section>
 
+      <section>
+        <DailyChallenge
+          mission={todayMission}
+          isCompletedToday={dailyCompleted}
+          streak={dailyStreak}
+          onJumpToMission={(missionId) => {
+            setFocusedMissionId(missionId);
+            window.location.hash = 'missions';
+          }}
+        />
+      </section>
+
       <section id="sandbox" className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
         <motion.div {...reveal} className="min-h-[560px]">
+          <div className="surface-soft mb-3 rounded-xl p-3 text-xs text-slate-200">
+            <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Git Coach</p>
+            <p>{coachTip}</p>
+          </div>
           <TerminalSandbox
             state={repoState}
             onStateChange={setRepoState}
-            onCommand={(command, success) => trackCommandEvent(command, success, 'sandbox')}
+            onCommand={(command, success, nextState) =>
+              trackCommandEvent(command, success, 'sandbox', repoState, nextState)
+            }
           />
         </motion.div>
         <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.07 }} className="min-h-[560px]">
@@ -348,11 +425,14 @@ export default function HomePage() {
         </motion.div>
       </section>
 
-      <section>
+      <section id="missions">
         <MissionCampaign
           repoState={repoState}
           commandHistory={commandHistory}
           onResetLab={resetLab}
+          clearedMissionIds={clearedMissions}
+          onMissionClear={handleMissionClear}
+          focusMissionId={focusedMissionId}
         />
       </section>
       <section className="surface rounded-2xl p-5">

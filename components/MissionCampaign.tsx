@@ -9,20 +9,38 @@ interface MissionCampaignProps {
   repoState: RepoState;
   commandHistory: CommandEvent[];
   onResetLab: () => void;
+  clearedMissionIds: string[];
+  onMissionClear: (missionId: string, score: number, stars: 1 | 2 | 3, rewardXp: number) => void;
+  focusMissionId?: string | null;
 }
 
-export default function MissionCampaign({ repoState, commandHistory, onResetLab }: MissionCampaignProps) {
+export default function MissionCampaign({
+  repoState,
+  commandHistory,
+  onResetLab,
+  clearedMissionIds,
+  onMissionClear,
+  focusMissionId
+}: MissionCampaignProps) {
   const [active, setActive] = useState(0);
   const [attemptStartIndex, setAttemptStartIndex] = useState(0);
   const [attemptStartTime, setAttemptStartTime] = useState(() => Date.now());
-  const [completed, setCompleted] = useState<Record<string, number>>({});
+  const [bestScoreByMission, setBestScoreByMission] = useState<Record<string, number>>({});
+  const [hintLevel, setHintLevel] = useState(0);
 
   const mission = gitMissions[active];
 
   useEffect(() => {
     setAttemptStartIndex(commandHistory.length);
     setAttemptStartTime(Date.now());
+    setHintLevel(0);
   }, [active]);
+
+  useEffect(() => {
+    if (!focusMissionId) return;
+    const index = gitMissions.findIndex((item) => item.id === focusMissionId);
+    if (index >= 0) setActive(index);
+  }, [focusMissionId]);
 
   const attemptEvents = useMemo(
     () => commandHistory.slice(attemptStartIndex),
@@ -30,25 +48,34 @@ export default function MissionCampaign({ repoState, commandHistory, onResetLab 
   );
 
   const evaluation = useMemo(
-    () => evaluateMission(mission, repoState, attemptEvents, attemptStartTime),
-    [mission, repoState, attemptEvents, attemptStartTime]
+    () => evaluateMission(mission, repoState, attemptEvents, attemptStartTime, hintLevel),
+    [mission, repoState, attemptEvents, attemptStartTime, hintLevel]
   );
 
   useEffect(() => {
     if (!evaluation.passed) return;
-    setCompleted((prev) => {
+    setBestScoreByMission((prev) => {
       const currentBest = prev[mission.id] ?? 0;
       if (evaluation.score <= currentBest) return prev;
+      onMissionClear(mission.id, evaluation.score, evaluation.stars, mission.rewardXp);
       return { ...prev, [mission.id]: evaluation.score };
     });
-  }, [evaluation.passed, evaluation.score, mission.id]);
+  }, [
+    evaluation.passed,
+    evaluation.score,
+    evaluation.stars,
+    mission.id,
+    mission.rewardXp,
+    onMissionClear
+  ]);
 
-  const completedCount = Object.keys(completed).length;
+  const completedCount = clearedMissionIds.length;
 
   const resetAttempt = () => {
     onResetLab();
     setAttemptStartIndex(0);
     setAttemptStartTime(Date.now());
+    setHintLevel(0);
   };
 
   const nextMission = () => {
@@ -70,7 +97,7 @@ export default function MissionCampaign({ repoState, commandHistory, onResetLab 
 
       <div className="mb-4 grid gap-2 md:grid-cols-5">
         {gitMissions.map((item, index) => {
-          const done = completed[item.id] !== undefined;
+          const done = clearedMissionIds.includes(item.id);
           const isActive = index === active;
           return (
             <button
@@ -124,6 +151,17 @@ export default function MissionCampaign({ repoState, commandHistory, onResetLab 
               </div>
             );
           })}
+        </div>
+
+        <div className="mb-3 rounded-lg border border-gitBlue/30 bg-gitBlue/10 p-3 text-xs text-slate-200">
+          <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Mission Hint</p>
+          <p>{mission.hints[Math.min(hintLevel, mission.hints.length - 1)]}</p>
+          <button
+            onClick={() => setHintLevel((value) => Math.min(value + 1, 2))}
+            className="mt-2 rounded-md border border-gitBlue/50 px-2 py-1 text-[11px] text-gitBlue"
+          >
+            Reveal Next Hint
+          </button>
         </div>
 
         <div className="mb-3 grid gap-2 md:grid-cols-4 text-xs">
