@@ -29,20 +29,99 @@ const commandCards = [
   {
     command: 'git merge feature',
     summary: 'Integrates feature work into main. If histories diverged, Git creates a merge node joining both parents.',
-    beforeGraph: `Before\nmain --o--o\n      \\\nfeature -o--o`,
-    afterGraph: `After\nmain --o--o----o\n      \\      /\nfeature -o--o`
+    beforeGraph: {
+      title: 'Before',
+      nodes: [
+        { id: 'm1', x: 36, y: 46, branch: 'main' },
+        { id: 'm2', x: 92, y: 46, branch: 'main', head: true },
+        { id: 'f1', x: 92, y: 98, branch: 'feature' },
+        { id: 'f2', x: 150, y: 98, branch: 'feature' }
+      ],
+      edges: [
+        { from: 'm1', to: 'm2', branch: 'main' },
+        { from: 'm2', to: 'f1', branch: 'feature' },
+        { from: 'f1', to: 'f2', branch: 'feature' }
+      ]
+    },
+    afterGraph: {
+      title: 'After',
+      nodes: [
+        { id: 'm1', x: 36, y: 46, branch: 'main' },
+        { id: 'm2', x: 92, y: 46, branch: 'main' },
+        { id: 'f1', x: 92, y: 98, branch: 'feature' },
+        { id: 'f2', x: 150, y: 98, branch: 'feature' },
+        { id: 'mg', x: 206, y: 70, branch: 'merge', head: true }
+      ],
+      edges: [
+        { from: 'm1', to: 'm2', branch: 'main' },
+        { from: 'm2', to: 'mg', branch: 'main' },
+        { from: 'm2', to: 'f1', branch: 'feature' },
+        { from: 'f1', to: 'f2', branch: 'feature' },
+        { from: 'f2', to: 'mg', branch: 'feature' }
+      ]
+    }
   },
   {
     command: 'git rebase main',
     summary: 'Moves feature commits on top of latest main so history stays linear and easier to reason about.',
-    beforeGraph: `Before\nmain    --o--o\nfeature --o--o`,
-    afterGraph: `After\nmain    --o--o\nfeature      -o--o`
+    beforeGraph: {
+      title: 'Before',
+      nodes: [
+        { id: 'rm1', x: 36, y: 46, branch: 'main' },
+        { id: 'rm2', x: 92, y: 46, branch: 'main' },
+        { id: 'rf1', x: 92, y: 98, branch: 'feature' },
+        { id: 'rf2', x: 150, y: 98, branch: 'feature', head: true }
+      ],
+      edges: [
+        { from: 'rm1', to: 'rm2', branch: 'main' },
+        { from: 'rm2', to: 'rf1', branch: 'feature' },
+        { from: 'rf1', to: 'rf2', branch: 'feature' }
+      ]
+    },
+    afterGraph: {
+      title: 'After',
+      nodes: [
+        { id: 'ram1', x: 36, y: 46, branch: 'main' },
+        { id: 'ram2', x: 92, y: 46, branch: 'main' },
+        { id: 'raf1', x: 150, y: 46, branch: 'feature' },
+        { id: 'raf2', x: 206, y: 46, branch: 'feature', head: true }
+      ],
+      edges: [
+        { from: 'ram1', to: 'ram2', branch: 'main' },
+        { from: 'ram2', to: 'raf1', branch: 'feature' },
+        { from: 'raf1', to: 'raf2', branch: 'feature' }
+      ]
+    }
   },
   {
     command: 'git reset --hard HEAD~1',
     summary: 'Moves branch pointer back and resets index + working tree to target commit in one shot.',
-    beforeGraph: `Before\nmain --o--o--o(HEAD)\nIndex: staged\nWD: modified`,
-    afterGraph: `After\nmain --o--o(HEAD)\nIndex: synced\nWD: synced`
+    beforeGraph: {
+      title: 'Before',
+      nodes: [
+        { id: 'hs1', x: 36, y: 72, branch: 'main' },
+        { id: 'hs2', x: 92, y: 72, branch: 'main' },
+        { id: 'hs3', x: 150, y: 72, branch: 'main', head: true }
+      ],
+      edges: [
+        { from: 'hs1', to: 'hs2', branch: 'main' },
+        { from: 'hs2', to: 'hs3', branch: 'main' }
+      ],
+      note: 'Index: staged | Working tree: modified'
+    },
+    afterGraph: {
+      title: 'After',
+      nodes: [
+        { id: 'ha1', x: 36, y: 72, branch: 'main' },
+        { id: 'ha2', x: 92, y: 72, branch: 'main', head: true },
+        { id: 'ha3', x: 150, y: 72, branch: 'main' }
+      ],
+      edges: [
+        { from: 'ha1', to: 'ha2', branch: 'main' },
+        { from: 'ha2', to: 'ha3', branch: 'main' }
+      ],
+      note: 'Index: synced | Working tree: synced'
+    }
   }
 ];
 

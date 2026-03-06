@@ -2,11 +2,88 @@
 
 import { motion } from 'framer-motion';
 
+interface DiagramNode {
+  id: string;
+  x: number;
+  y: number;
+  branch: 'main' | 'feature' | 'merge';
+  head?: boolean;
+}
+
+interface DiagramEdge {
+  from: string;
+  to: string;
+  branch: 'main' | 'feature' | 'merge';
+}
+
+interface DiagramState {
+  title: string;
+  nodes: DiagramNode[];
+  edges: DiagramEdge[];
+  note?: string;
+}
+
 interface CommandCardProps {
   command: string;
   summary: string;
-  beforeGraph: string;
-  afterGraph: string;
+  beforeGraph: DiagramState;
+  afterGraph: DiagramState;
+}
+
+const branchColor = {
+  main: '#238636',
+  feature: '#58A6FF',
+  merge: '#f59e0b'
+};
+
+function MiniGraph({ state }: { state: DiagramState }) {
+  const nodeMap = new Map(state.nodes.map((node) => [node.id, node]));
+  return (
+    <div className="surface-soft rounded-xl p-3">
+      <p className="mb-2 text-[11px] uppercase tracking-widest text-slate-400">{state.title}</p>
+      <svg viewBox="0 0 280 145" className="h-[145px] w-full rounded-lg bg-[#060a11]">
+        {state.edges.map((edge) => {
+          const from = nodeMap.get(edge.from);
+          const to = nodeMap.get(edge.to);
+          if (!from || !to) return null;
+          return (
+            <line
+              key={`${edge.from}-${edge.to}`}
+              x1={from.x}
+              y1={from.y}
+              x2={to.x}
+              y2={to.y}
+              stroke={branchColor[edge.branch]}
+              strokeWidth={2.3}
+              strokeOpacity={0.8}
+            />
+          );
+        })}
+        {state.nodes.map((node) => (
+          <g key={node.id}>
+            {node.head ? (
+              <motion.circle
+                cx={node.x}
+                cy={node.y}
+                r={12}
+                fill={branchColor[node.branch]}
+                fillOpacity={0.18}
+                animate={{ scale: [1, 1.12, 1] }}
+                transition={{ repeat: Infinity, duration: 1.6 }}
+              />
+            ) : null}
+            <circle cx={node.x} cy={node.y} r={6} fill={branchColor[node.branch]} />
+            {node.head ? (
+              <text x={node.x + 10} y={node.y + 4} className="fill-gitBlue text-[10px] font-mono">
+                HEAD
+              </text>
+            ) : null}
+          </g>
+        ))}
+      </svg>
+      {state.note ? <p className="mt-2 text-[11px] text-slate-400">{state.note}</p> : null}
+    </div>
+  );
 }
 
 export default function CommandCard({ command, summary, beforeGraph, afterGraph }: CommandCardProps) {
@@ -23,8 +100,8 @@ export default function CommandCard({ command, summary, beforeGraph, afterGraph 
       </div>
       <p className="mb-4 text-sm leading-relaxed text-slate-300">{summary}</p>
       <div className="grid gap-3 font-mono text-xs text-slate-300 md:grid-cols-2">
-        <pre className="surface-soft overflow-x-auto rounded-xl p-3">{beforeGraph}</pre>
-        <pre className="surface-soft overflow-x-auto rounded-xl p-3">{afterGraph}</pre>
+        <MiniGraph state={beforeGraph} />
+        <MiniGraph state={afterGraph} />
       </div>
     </motion.article>
   );
