@@ -16,7 +16,7 @@ import { RepoState, createInitialRepoState } from '@/lib/gitEngine';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { ExperienceLevel, onboardingTracks } from '@/lib/gitChallenges';
 import { buildCoachFeedback } from '@/lib/gitCoach';
-import { CommandEvent, missionOfTheDay, gitMissions } from '@/lib/gitMissions';
+import { CommandEvent, evaluateMission, missionOfTheDay, gitMissions } from '@/lib/gitMissions';
 
 const RebaseSimulator = dynamic(() => import('@/components/RebaseSimulator'), {
   loading: () => <div className="surface rounded-3xl p-5 text-sm text-slate-400">Loading Rebase Lab...</div>
@@ -160,6 +160,10 @@ export default function HomePage() {
   const [focusedMissionId, setFocusedMissionId] = useState<string | null>(null);
   const [coachTip, setCoachTip] = useState('Run a command to get contextual Git coaching.');
   const [sandboxResetSignal, setSandboxResetSignal] = useState(0);
+  const [practiceMissionIndex, setPracticeMissionIndex] = useState(0);
+  const [practiceAttemptStartIndex, setPracticeAttemptStartIndex] = useState(0);
+  const [practiceAttemptStartTime, setPracticeAttemptStartTime] = useState(() => Date.now());
+  const [practiceHintLevel, setPracticeHintLevel] = useState(0);
 
   const todayMission = useMemo(() => missionOfTheDay(), []);
   const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -257,7 +261,7 @@ export default function HomePage() {
     const result = executeGitCommand(repoState, runnable);
     setRepoState(result.nextState);
     trackCommandEvent(runnable, result.success, 'explorer', before, result.nextState);
-    setView('sandbox');
+    if (view !== 'practice') setView('sandbox');
   };
 
   const resetLab = () => {
@@ -327,6 +331,51 @@ export default function HomePage() {
     () => levelTrack.filter((command) => !learnedCommands.includes(command)).slice(0, 6),
     [levelTrack, learnedCommands]
   );
+
+  const practiceMission = gitMissions[practiceMissionIndex];
+  const practiceEvents = useMemo(
+    () => commandHistory.slice(practiceAttemptStartIndex),
+    [commandHistory, practiceAttemptStartIndex]
+  );
+  const practiceEvaluation = useMemo(
+    () =>
+      evaluateMission(
+        practiceMission,
+        repoState,
+        practiceEvents,
+        practiceAttemptStartTime,
+        practiceHintLevel
+      ),
+    [practiceMission, repoState, practiceEvents, practiceAttemptStartTime, practiceHintLevel]
+  );
+
+  useEffect(() => {
+    if (view !== 'practice') return;
+    setPracticeAttemptStartIndex(commandHistory.length);
+    setPracticeAttemptStartTime(Date.now());
+    setPracticeHintLevel(0);
+  }, [practiceMissionIndex, view]); // start a new mission attempt when mission changes
+
+  useEffect(() => {
+    if (view !== 'practice') return;
+    if (!practiceEvaluation.passed) return;
+    handleMissionClear(
+      practiceMission.id,
+      practiceEvaluation.score,
+      practiceEvaluation.stars,
+      practiceMission.rewardXp
+    );
+  }, [view, practiceEvaluation.passed, practiceEvaluation.score, practiceEvaluation.stars, practiceMission.id, practiceMission.rewardXp]);
+
+  const startPracticeAttempt = () => {
+    setRepoState(createInitialRepoState());
+    setCommandHistory([]);
+    setCoachTip('Practice attempt started. Solve the mission using terminal commands.');
+    setSandboxResetSignal((value) => value + 1);
+    setPracticeAttemptStartIndex(0);
+    setPracticeAttemptStartTime(Date.now());
+    setPracticeHintLevel(0);
+  };
 
   return (
     <main className="mx-auto max-w-[1500px] space-y-6 px-4 py-6 md:px-8 md:py-8">
@@ -423,11 +472,125 @@ export default function HomePage() {
               isCompletedToday={dailyCompleted}
               streak={dailyStreak}
               onJumpToMission={(missionId) => {
-                setFocusedMissionId(missionId);
-                setView('learn');
+                const index = gitMissions.findIndex((mission) => mission.id === missionId);
+                if (index >= 0) setPracticeMissionIndex(index);
+                setView('practice');
               }}
             />
           </motion.section>
+
+          <section className="grid items-stretch gap-4 xl:grid-cols-[0.92fr_1.08fr]">
+            <motion.aside {...reveal} className="surface flex min-h-[760px] flex-col rounded-2xl p-4">
+              <div className="mb-3 flex flex-wrap gap-2">
+                {gitMissions.map((mission, index) => (
+                  <button
+                    key={mission.id}
+                    onClick={() => setPracticeMissionIndex(index)}
+                    className={`rounded-md px-2 py-1 text-[11px] ${
+                      index === practiceMissionIndex
+                        ? 'border border-gitBlue/60 bg-gitBlue/15 text-gitBlue'
+                        : 'border border-white/15 text-slate-300'
+                    }`}
+                  >
+                    {mission.level}
+                  </button>
+                ))}
+              </div>
+
+              <div className="surface-soft mb-3 rounded-xl p-3">
+                <p className="text-xs uppercase tracking-widest text-gitBlue">
+                  Mission {practiceMission.level} - {practiceMission.tier}
+                </p>
+                <h3 className="mt-1 text-xl font-semibold">{practiceMission.title}</h3>
+                <p className="mt-1 text-sm text-slate-300">{practiceMission.story}</p>
+              </div>
+
+              <div className="surface-soft mb-3 rounded-xl p-3">
+                <p className="mb-2 text-xs uppercase tracking-widest text-slate-400">Objectives</p>
+                <div className="space-y-2">
+                  {practiceMission.objectives.map((objective) => {
+                    const done = objective.check(repoState, practiceEvents);
+                    return (
+                      <div
+                        key={objective.id}
+                        className={`rounded-md border px-2 py-1 text-xs ${
+                          done
+                            ? 'border-gitGreen/50 bg-gitGreen/10 text-gitGreen'
+                            : 'border-white/10 text-slate-300'
+                        }`}
+                      >
+                        {done ? 'Done' : 'Pending'} - {objective.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="surface-soft mb-3 rounded-xl p-3 text-xs text-slate-200">
+                <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Hint</p>
+                <p>{practiceMission.hints[Math.min(practiceHintLevel, 2)]}</p>
+                <button
+                  onClick={() => setPracticeHintLevel((value) => Math.min(value + 1, 2))}
+                  className="mt-2 rounded-md border border-gitBlue/50 px-2 py-1 text-[11px] text-gitBlue"
+                >
+                  Reveal Next Hint
+                </button>
+              </div>
+
+              <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-md border border-white/10 px-2 py-1">Score: {practiceEvaluation.score}</div>
+                <div className="rounded-md border border-white/10 px-2 py-1">Stars: {practiceEvaluation.stars}</div>
+                <div className="rounded-md border border-white/10 px-2 py-1">
+                  Progress: {practiceEvaluation.completed}/{practiceEvaluation.total}
+                </div>
+                <div className="rounded-md border border-white/10 px-2 py-1">
+                  Commands: {practiceEvaluation.commandCount}
+                </div>
+              </div>
+
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button
+                  onClick={startPracticeAttempt}
+                  className="rounded-lg bg-gitGreen px-3 py-1.5 text-xs font-semibold text-black"
+                >
+                  Start Practice Attempt
+                </button>
+                <button
+                  onClick={() => setView('learn')}
+                  className="rounded-lg border border-gitBlue/50 px-3 py-1.5 text-xs text-gitBlue"
+                >
+                  Back To Learn
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1">
+                <CommandExplorer onSelectCommand={simulateFromExplorer} />
+              </div>
+            </motion.aside>
+
+            <motion.div {...reveal} transition={{ duration: 0.45, delay: 0.06 }} className="grid min-h-[760px] gap-3 xl:grid-rows-[auto_1fr]">
+              <div className="surface-soft rounded-xl p-3 text-xs text-slate-200">
+                <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Git Coach</p>
+                <p>{coachTip}</p>
+              </div>
+
+              <div className="grid min-h-0 gap-3 xl:grid-cols-[0.95fr_1.05fr]">
+                <div className="min-h-0">
+                  <TerminalSandbox
+                    state={repoState}
+                    onStateChange={setRepoState}
+                    resetSignal={sandboxResetSignal}
+                    onCommand={(command, success, nextState) =>
+                      trackCommandEvent(command, success, 'sandbox', repoState, nextState)
+                    }
+                  />
+                </div>
+                <div className="min-h-0">
+                  <RepoVisualizer state={repoState} />
+                </div>
+              </div>
+            </motion.div>
+          </section>
 
           <section className="grid gap-4 xl:grid-cols-3">
             <motion.div {...reveal}>
