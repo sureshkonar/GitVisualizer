@@ -12,6 +12,7 @@ import MissionCampaign from '@/components/MissionCampaign';
 import OnboardingModal from '@/components/OnboardingModal';
 import RepoVisualizer from '@/components/RepoVisualizer';
 import TerminalSandbox from '@/components/TerminalSandbox';
+import WebsiteTutorial from '@/components/WebsiteTutorial';
 import { RepoState, createInitialRepoState } from '@/lib/gitEngine';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { ExperienceLevel, onboardingTracks } from '@/lib/gitChallenges';
@@ -164,6 +165,9 @@ export default function HomePage() {
   const [practiceAttemptStartIndex, setPracticeAttemptStartIndex] = useState(0);
   const [practiceAttemptStartTime, setPracticeAttemptStartTime] = useState(() => Date.now());
   const [practiceHintLevel, setPracticeHintLevel] = useState(0);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [hasSeenTutorial, setHasSeenTutorial] = useState(false);
 
   const todayMission = useMemo(() => missionOfTheDay(), []);
   const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -185,19 +189,61 @@ export default function HomePage() {
     const storedCleared = window.localStorage.getItem('gitviz_cleared_missions');
     const storedStreak = window.localStorage.getItem('gitviz_daily_streak');
     const storedDailyDate = window.localStorage.getItem('gitviz_last_daily_date');
+    const tutorialDone = window.localStorage.getItem('gitviz_tutorial_done') === '1';
     if (storedLevel) setExperienceLevel(storedLevel);
     if (storedCommands) setLearnedCommands(JSON.parse(storedCommands));
     if (storedMissionXp) setMissionXp(Number(storedMissionXp));
     if (storedCleared) setClearedMissions(JSON.parse(storedCleared));
     if (storedStreak) setDailyStreak(Number(storedStreak));
     if (storedDailyDate === todayKey) setDailyCompleted(true);
+    setHasSeenTutorial(tutorialDone);
     setShowOnboarding(true);
+    if (!tutorialDone) setTutorialOpen(true);
   }, [todayKey]);
 
   const handleLevelSelect = (level: ExperienceLevel) => {
     setExperienceLevel(level);
     setShowOnboarding(false);
     window.localStorage.setItem('gitviz_level', level);
+    if (!hasSeenTutorial) setTutorialOpen(true);
+  };
+
+  const tutorialSteps: { title: string; description: string; cta: string; view: AppView }[] = [
+    {
+      title: 'Learn Tab: Your Main Journey',
+      description:
+        'Start here. Pick one mission, run commands, and clear objectives with hints and scoring.',
+      cta: 'Go To Learn',
+      view: 'learn'
+    },
+    {
+      title: 'Practice Tab: Solve Like LeetCode',
+      description:
+        'Left side shows the task and objectives. Right side is live terminal + graph to solve in real time.',
+      cta: 'Go To Practice',
+      view: 'practice'
+    },
+    {
+      title: 'Sandbox Tab: Free Exploration',
+      description:
+        'Try any command sequence and inspect repository behavior with visual feedback and Git coach tips.',
+      cta: 'Go To Sandbox',
+      view: 'sandbox'
+    },
+    {
+      title: 'Progress Tab: Track Growth',
+      description:
+        'Review XP, cleared missions, unlocked achievements, and recommended commands to practice next.',
+      cta: 'Go To Progress',
+      view: 'progress'
+    }
+  ];
+
+  const closeTutorial = () => {
+    setTutorialOpen(false);
+    setTutorialStep(0);
+    setHasSeenTutorial(true);
+    window.localStorage.setItem('gitviz_tutorial_done', '1');
   };
 
   const registerCommand = (rawCommand: string, success: boolean) => {
@@ -380,6 +426,21 @@ export default function HomePage() {
   return (
     <main className="mx-auto max-w-[1500px] space-y-6 px-4 py-6 md:px-8 md:py-8">
       <OnboardingModal open={showOnboarding} onSelect={handleLevelSelect} />
+      <WebsiteTutorial
+        open={tutorialOpen && !showOnboarding}
+        currentStep={tutorialStep}
+        steps={tutorialSteps}
+        onPrev={() => setTutorialStep((value) => Math.max(0, value - 1))}
+        onNext={() => {
+          if (tutorialStep >= tutorialSteps.length - 1) {
+            closeTutorial();
+            return;
+          }
+          setTutorialStep((value) => value + 1);
+        }}
+        onClose={closeTutorial}
+        onGoToView={(nextView) => setView(nextView)}
+      />
 
       <section className="surface rounded-2xl p-3">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/25 px-3 py-2">
@@ -388,6 +449,12 @@ export default function HomePage() {
             <p className="text-xs text-slate-400">Guided Git learning journey</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setTutorialOpen(true)}
+              className="rounded-lg border border-gitGreen/50 bg-gitGreen/10 px-3 py-1.5 text-xs font-semibold text-gitGreen"
+            >
+              Website Tutorial
+            </button>
             {navItems.map((item) => (
               <button
                 key={item.id}
@@ -401,6 +468,29 @@ export default function HomePage() {
                 {item.label}
               </button>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-4">
+        <div className="surface-soft rounded-xl px-3 py-2">
+          <p className="text-[11px] uppercase tracking-widest text-slate-400">Rank</p>
+          <p className="font-semibold text-gitBlue">
+            {stats.xp >= 1600 ? 'Git Master' : stats.xp >= 900 ? 'Advanced' : stats.xp >= 400 ? 'Intermediate' : 'Beginner'}
+          </p>
+        </div>
+        <div className="surface-soft rounded-xl px-3 py-2">
+          <p className="text-[11px] uppercase tracking-widest text-slate-400">Mission Progress</p>
+          <p className="font-semibold text-gitGreen">{clearedMissions.length}/{gitMissions.length} cleared</p>
+        </div>
+        <div className="surface-soft rounded-xl px-3 py-2">
+          <p className="text-[11px] uppercase tracking-widest text-slate-400">Daily Streak</p>
+          <p className="font-semibold text-gitGreen">{dailyStreak} day{dailyStreak === 1 ? '' : 's'}</p>
+        </div>
+        <div className="surface-soft rounded-xl px-3 py-2">
+          <p className="text-[11px] uppercase tracking-widest text-slate-400">XP Meter</p>
+          <div className="mt-1 h-1.5 rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-gitBlue" style={{ width: `${Math.min(100, (stats.xp % 400) / 4)}%` }} />
           </div>
         </div>
       </section>
@@ -459,7 +549,14 @@ export default function HomePage() {
           </motion.section>
 
           <motion.section {...reveal}>
-            <LearningPath focusCommands={levelTrack} />
+            <LearningPath
+              focusCommands={levelTrack}
+              learnedCommands={learnedCommands}
+              onStartQuest={(command) => {
+                simulateFromExplorer(command);
+                setView('sandbox');
+              }}
+            />
           </motion.section>
         </>
       ) : null}
