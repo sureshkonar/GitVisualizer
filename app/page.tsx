@@ -10,6 +10,7 @@ import OnboardingModal from '@/components/OnboardingModal';
 import RepoVisualizer from '@/components/RepoVisualizer';
 import TerminalSandbox from '@/components/TerminalSandbox';
 import { RepoState, createInitialRepoState } from '@/lib/gitEngine';
+import { executeGitCommand } from '@/lib/gitCommands';
 import { ExperienceLevel, onboardingTracks } from '@/lib/gitChallenges';
 
 const RebaseSimulator = dynamic(() => import('@/components/RebaseSimulator'), {
@@ -95,6 +96,41 @@ export default function HomePage() {
     });
   };
 
+  const mapSimulationCommand = (command: string): string => {
+    const examples: Record<string, string> = {
+      'git branch': 'git branch feature',
+      'git checkout': 'git checkout main',
+      'git switch': 'git switch main',
+      'git merge': 'git merge feature',
+      'git branch -d': 'git branch -d feature',
+      'git remote': 'git remote',
+      'git fetch': 'git fetch',
+      'git pull': 'git pull',
+      'git push': 'git push',
+      'git rebase': 'git rebase main',
+      'git cherry-pick': 'git cherry-pick deadbee',
+      'git revert': 'git revert deadbee',
+      'git reset': 'git reset --mixed',
+      'git restore': 'git restore .',
+      'git bisect': 'git bisect',
+      'git blame': 'git blame',
+      'git stash': 'git stash',
+      'git submodule': 'git submodule status',
+      'git worktree': 'git worktree list',
+      'git add': 'git add .',
+      'git commit': 'git commit -m "docs: simulated commit"'
+    };
+    return examples[command] ?? command;
+  };
+
+  const simulateFromExplorer = (baseCommand: string) => {
+    const runnable = mapSimulationCommand(baseCommand);
+    const result = executeGitCommand(repoState, runnable);
+    setRepoState(result.nextState);
+    registerCommand(runnable, result.success);
+    window.location.hash = 'sandbox';
+  };
+
   const levelTrack = experienceLevel ? onboardingTracks[experienceLevel] : [];
   const achievements = [
     learnedCommands.includes('git commit') ? 'First Commit' : null,
@@ -178,7 +214,7 @@ export default function HomePage() {
       </motion.section>
 
       <motion.section {...reveal}>
-        <CommandExplorer onSelectCommand={(command) => registerCommand(command, true)} />
+        <CommandExplorer onSelectCommand={simulateFromExplorer} />
       </motion.section>
 
       <motion.section {...reveal} transition={{ duration: 0.45 }} className="grid gap-4 xl:grid-cols-3">
