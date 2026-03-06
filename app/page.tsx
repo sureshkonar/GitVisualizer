@@ -8,16 +8,30 @@ import type { CommandCardProps } from '@/components/CommandCard';
 import CommandExplorer from '@/components/CommandExplorer';
 import DailyChallenge from '@/components/DailyChallenge';
 import LearningPath from '@/components/LearningPath';
+import LeaderboardPanel from '@/components/LeaderboardPanel';
 import MissionCampaign from '@/components/MissionCampaign';
 import OnboardingModal from '@/components/OnboardingModal';
 import RepoVisualizer from '@/components/RepoVisualizer';
 import TerminalSandbox from '@/components/TerminalSandbox';
+import UserProfileModal from '@/components/UserProfileModal';
 import WebsiteTutorial from '@/components/WebsiteTutorial';
 import { RepoState, createInitialRepoState } from '@/lib/gitEngine';
 import { executeGitCommand } from '@/lib/gitCommands';
 import { ExperienceLevel, onboardingTracks } from '@/lib/gitChallenges';
 import { buildCoachFeedback } from '@/lib/gitCoach';
+import { fetchProfilesFromGithub, pushProfileToGithub } from '@/lib/githubSync';
 import { CommandEvent, evaluateMission, missionOfTheDay, gitMissions } from '@/lib/gitMissions';
+import {
+  UserProfile,
+  createDefaultProfile,
+  exportLeaderboardCsv,
+  exportProfileJson,
+  getOrCreateProfile,
+  loadActiveUsername,
+  loadProfiles,
+  saveActiveUsername,
+  saveProfiles
+} from '@/lib/profileStore';
 
 const RebaseSimulator = dynamic(() => import('@/components/RebaseSimulator'), {
   loading: () => <div className="surface rounded-3xl p-5 text-sm text-slate-400">Loading Rebase Lab...</div>
@@ -149,6 +163,15 @@ const reveal = {
 
 export default function HomePage() {
   const [view, setView] = useState<AppView>('learn');
+  const [profileModalOpen, setProfileModalOpen] = useState(true);
+  const [activeUsername, setActiveUsername] = useState<string | null>(null);
+  const [profilesMap, setProfilesMap] = useState<Record<string, UserProfile>>({});
+  const [githubToken, setGithubToken] = useState('');
+  const [githubOwner, setGithubOwner] = useState('sureshkonar');
+  const [githubRepo, setGithubRepo] = useState('GitVisualizer');
+  const [remoteProfiles, setRemoteProfiles] = useState<UserProfile[]>([]);
+  const [syncStatus, setSyncStatus] = useState('');
+  const [challengeLink, setChallengeLink] = useState('');
   const [repoState, setRepoState] = useState<RepoState>(() => createInitialRepoState());
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -183,18 +206,27 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    const storedLevel = window.localStorage.getItem('gitviz_level') as ExperienceLevel | null;
-    const storedCommands = window.localStorage.getItem('gitviz_learned');
-    const storedMissionXp = window.localStorage.getItem('gitviz_mission_xp');
-    const storedCleared = window.localStorage.getItem('gitviz_cleared_missions');
-    const storedStreak = window.localStorage.getItem('gitviz_daily_streak');
-    const storedDailyDate = window.localStorage.getItem('gitviz_last_daily_date');
+    const allProfiles = loadProfiles();
+    const username = loadActiveUsername();
+    setProfilesMap(allProfiles);
+    setActiveUsername(username);
+    setProfileModalOpen(!username);
+
+    if (!username || !allProfiles[username]) return;
+    const profile = allProfiles[username];
+
+    const storedLevel = profile.experienceLevel;
+    const storedCommands = profile.learnedCommands;
+    const storedMissionXp = profile.missionXp;
+    const storedCleared = profile.clearedMissions;
+    const storedStreak = profile.dailyStreak;
+    const storedDailyDate = profile.lastDailyDate;
     const tutorialDone = window.localStorage.getItem('gitviz_tutorial_done') === '1';
     if (storedLevel) setExperienceLevel(storedLevel);
-    if (storedCommands) setLearnedCommands(JSON.parse(storedCommands));
-    if (storedMissionXp) setMissionXp(Number(storedMissionXp));
-    if (storedCleared) setClearedMissions(JSON.parse(storedCleared));
-    if (storedStreak) setDailyStreak(Number(storedStreak));
+    if (storedCommands) setLearnedCommands(storedCommands);
+    if (storedMissionXp) setMissionXp(storedMissionXp);
+    if (storedCleared) setClearedMissions(storedCleared);
+    if (storedStreak) setDailyStreak(storedStreak);
     if (storedDailyDate === todayKey) setDailyCompleted(true);
     setHasSeenTutorial(tutorialDone);
     setShowOnboarding(true);
@@ -204,8 +236,32 @@ export default function HomePage() {
   const handleLevelSelect = (level: ExperienceLevel) => {
     setExperienceLevel(level);
     setShowOnboarding(false);
-    window.localStorage.setItem('gitviz_level', level);
+    if (!activeUsername) return;
+    const profile = getOrCreateProfile(activeUsername);
+    const updated = { ...profile, experienceLevel: level, lastSeen: new Date().toISOString() };
+    const next = { ...profilesMap, [activeUsername]: updated };
+    setProfilesMap(next);
+    saveProfiles(next);
     if (!hasSeenTutorial) setTutorialOpen(true);
+  };
+
+  const handleProfileContinue = (username: string) => {
+    const cleaned = username.trim().toLowerCase();
+    if (!cleaned) return;
+    const profile = getOrCreateProfile(cleaned);
+    setActiveUsername(cleaned);
+    saveActiveUsername(cleaned);
+    setProfileModalOpen(false);
+    const next = { ...loadProfiles(), [cleaned]: profile };
+    setProfilesMap(next);
+
+    setExperienceLevel(profile.experienceLevel);
+    setLearnedCommands(profile.learnedCommands);
+    setMissionXp(profile.missionXp);
+    setClearedMissions(profile.clearedMissions);
+    setDailyStreak(profile.dailyStreak);
+    setDailyCompleted(profile.lastDailyDate === todayKey);
+    setShowOnboarding(!profile.experienceLevel);
   };
 
   const tutorialSteps: { title: string; description: string; cta: string; view: AppView }[] = [
@@ -244,6 +300,63 @@ export default function HomePage() {
     setTutorialStep(0);
     setHasSeenTutorial(true);
     window.localStorage.setItem('gitviz_tutorial_done', '1');
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get('challenge');
+    if (!encoded) return;
+    try {
+      const decoded = JSON.parse(decodeURIComponent(escape(window.atob(encoded)))) as {
+        missionId?: string;
+        inviter?: string;
+      };
+      if (!decoded.missionId) return;
+      const index = gitMissions.findIndex((mission) => mission.id === decoded.missionId);
+      if (index >= 0) {
+        setPracticeMissionIndex(index);
+        setView('practice');
+        if (decoded.inviter) {
+          setCoachTip(`Challenge received from ${decoded.inviter}. Complete this mission to beat their score.`);
+        }
+      }
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  const buildChallengeLink = () => {
+    if (typeof window === 'undefined') return '';
+    const payload = {
+      missionId: practiceMission.id,
+      inviter: activeUsername ?? 'anonymous',
+      scoreTarget: practiceEvaluation.score
+    };
+    const encoded = window.btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return `${window.location.origin}${window.location.pathname}?challenge=${encoded}`;
+  };
+
+  const generateChallengeLink = () => {
+    const link = buildChallengeLink();
+    setChallengeLink(link);
+    return link;
+  };
+
+  const shareToLinkedIn = () => {
+    const link = challengeLink || generateChallengeLink();
+    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(link)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const shareToGitHub = () => {
+    const link = challengeLink || generateChallengeLink();
+    const title = encodeURIComponent(`Git Visualizer Challenge: ${practiceMission.title}`);
+    const body = encodeURIComponent(
+      `I created a Git challenge for you.\\n\\nMission: ${practiceMission.title}\\nTry it here: ${link}`
+    );
+    const url = `https://github.com/${githubOwner}/${githubRepo}/issues/new?title=${title}&body=${body}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const registerCommand = (rawCommand: string, success: boolean) => {
@@ -360,6 +473,74 @@ export default function HomePage() {
     setDailyCompleted(true);
   };
 
+  const activeProfile = activeUsername ? profilesMap[activeUsername] ?? null : null;
+  const localProfiles = useMemo(() => Object.values(profilesMap), [profilesMap]);
+
+  const handleExportProfile = () => {
+    if (!activeProfile) return;
+    const blob = new Blob([exportProfileJson(activeProfile)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${activeProfile.username}-gitviz-profile.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCsv = () => {
+    const csv = exportLeaderboardCsv(localProfiles);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'gitviz-leaderboard.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportProfile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as UserProfile;
+        const next = { ...profilesMap, [parsed.username]: parsed };
+        setProfilesMap(next);
+        saveProfiles(next);
+        setSyncStatus(`Imported profile: ${parsed.username}`);
+      } catch {
+        setSyncStatus('Invalid profile file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleGithubPush = async () => {
+    if (!githubToken || !activeProfile) {
+      setSyncStatus('Set GitHub token and active user first.');
+      return;
+    }
+    try {
+      await pushProfileToGithub(githubToken, githubOwner, githubRepo, activeProfile);
+      setSyncStatus('Profile synced to GitHub repo.');
+    } catch (error) {
+      setSyncStatus(error instanceof Error ? error.message : 'GitHub sync failed.');
+    }
+  };
+
+  const handleGithubPullLeaderboard = async () => {
+    if (!githubToken) {
+      setSyncStatus('Set GitHub token to fetch remote leaderboard.');
+      return;
+    }
+    try {
+      const profiles = await fetchProfilesFromGithub(githubToken, githubOwner, githubRepo);
+      setRemoteProfiles(profiles);
+      setSyncStatus(`Fetched ${profiles.length} profiles from GitHub.`);
+    } catch (error) {
+      setSyncStatus(error instanceof Error ? error.message : 'Failed to fetch remote profiles.');
+    }
+  };
+
   const levelTrack = experienceLevel ? onboardingTracks[experienceLevel] : [];
   const achievements = [
     learnedCommands.includes('git commit') ? 'First Commit' : null,
@@ -377,6 +558,37 @@ export default function HomePage() {
     () => levelTrack.filter((command) => !learnedCommands.includes(command)).slice(0, 6),
     [levelTrack, learnedCommands]
   );
+
+  useEffect(() => {
+    if (!activeUsername) return;
+    setProfilesMap((prev) => {
+      const existing = prev[activeUsername] ?? createDefaultProfile(activeUsername);
+      const updated: UserProfile = {
+        ...existing,
+        username: activeUsername,
+        xp: stats.xp,
+        missionXp,
+        learnedCommands,
+        clearedMissions,
+        dailyStreak,
+        lastDailyDate: dailyCompleted ? todayKey : existing.lastDailyDate,
+        experienceLevel
+      };
+      const next = { ...prev, [activeUsername]: updated };
+      saveProfiles(next);
+      return next;
+    });
+  }, [
+    activeUsername,
+    stats.xp,
+    missionXp,
+    learnedCommands,
+    clearedMissions,
+    dailyStreak,
+    dailyCompleted,
+    todayKey,
+    experienceLevel
+  ]);
 
   const practiceMission = gitMissions[practiceMissionIndex];
   const practiceEvents = useMemo(
@@ -425,6 +637,11 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto max-w-[1500px] space-y-6 px-4 py-6 md:px-8 md:py-8">
+      <UserProfileModal
+        open={profileModalOpen}
+        existingUsers={Object.keys(profilesMap)}
+        onContinue={handleProfileContinue}
+      />
       <OnboardingModal open={showOnboarding} onSelect={handleLevelSelect} />
       <WebsiteTutorial
         open={tutorialOpen && !showOnboarding}
@@ -449,6 +666,12 @@ export default function HomePage() {
             <p className="text-xs text-slate-400">Guided Git learning journey</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setProfileModalOpen(true)}
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-slate-300"
+            >
+              User: {activeUsername ?? 'Guest'}
+            </button>
             <button
               onClick={() => setTutorialOpen(true)}
               className="rounded-lg border border-gitGreen/50 bg-gitGreen/10 px-3 py-1.5 text-xs font-semibold text-gitGreen"
@@ -660,6 +883,32 @@ export default function HomePage() {
                 </button>
               </div>
 
+              <div className="surface-soft mb-3 rounded-xl p-3 text-xs">
+                <p className="mb-1 uppercase tracking-widest text-[10px] text-gitBlue">Friend Challenge Link</p>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      const link = generateChallengeLink();
+                      navigator.clipboard.writeText(link);
+                    }}
+                    className="rounded-md border border-gitBlue/50 px-2 py-1 text-gitBlue"
+                  >
+                    Copy Challenge Link
+                  </button>
+                  <button onClick={shareToLinkedIn} className="rounded-md border border-white/20 px-2 py-1 text-slate-300">
+                    Share on LinkedIn
+                  </button>
+                  <button onClick={shareToGitHub} className="rounded-md border border-white/20 px-2 py-1 text-slate-300">
+                    Share on GitHub
+                  </button>
+                </div>
+                {challengeLink ? (
+                  <p className="break-all font-mono text-[10px] text-slate-400">{challengeLink}</p>
+                ) : (
+                  <p className="text-[10px] text-slate-400">Generate and share mission links with friends.</p>
+                )}
+              </div>
+
               <div className="min-h-0 flex-1">
                 <CommandExplorer onSelectCommand={simulateFromExplorer} />
               </div>
@@ -805,6 +1054,78 @@ export default function HomePage() {
                     <p className="text-slate-400">No mission cleared yet.</p>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <LeaderboardPanel
+                title="Local Leaderboard"
+                profiles={localProfiles}
+                currentUsername={activeUsername}
+              />
+              <LeaderboardPanel
+                title="GitHub Synced Leaderboard"
+                profiles={remoteProfiles}
+                currentUsername={activeUsername}
+              />
+            </div>
+
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div className="surface-soft rounded-xl p-3">
+                <p className="mb-2 text-xs uppercase tracking-widest text-slate-400">Profile Data</p>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={handleExportProfile} className="rounded-md border border-gitBlue/50 px-2 py-1 text-xs text-gitBlue">
+                    Export Profile JSON
+                  </button>
+                  <button onClick={handleExportCsv} className="rounded-md border border-white/20 px-2 py-1 text-xs text-slate-300">
+                    Export Leaderboard CSV
+                  </button>
+                  <label className="rounded-md border border-white/20 px-2 py-1 text-xs text-slate-300 cursor-pointer">
+                    Import Profile
+                    <input
+                      type="file"
+                      accept="application/json"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) handleImportProfile(file);
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="surface-soft rounded-xl p-3">
+                <p className="mb-2 text-xs uppercase tracking-widest text-slate-400">GitHub Repo Sync</p>
+                <div className="grid gap-2 md:grid-cols-2">
+                  <input
+                    value={githubOwner}
+                    onChange={(event) => setGithubOwner(event.target.value)}
+                    placeholder="owner"
+                    className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-xs"
+                  />
+                  <input
+                    value={githubRepo}
+                    onChange={(event) => setGithubRepo(event.target.value)}
+                    placeholder="repo"
+                    className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-xs"
+                  />
+                </div>
+                <input
+                  value={githubToken}
+                  onChange={(event) => setGithubToken(event.target.value)}
+                  placeholder="GitHub token (repo scope)"
+                  className="mt-2 w-full rounded-md border border-white/15 bg-black/30 px-2 py-1 text-xs"
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button onClick={handleGithubPush} className="rounded-md border border-gitGreen/50 px-2 py-1 text-xs text-gitGreen">
+                    Push My Profile
+                  </button>
+                  <button onClick={handleGithubPullLeaderboard} className="rounded-md border border-gitBlue/50 px-2 py-1 text-xs text-gitBlue">
+                    Pull Leaderboard
+                  </button>
+                </div>
+                {syncStatus ? <p className="mt-2 text-[11px] text-slate-400">{syncStatus}</p> : null}
               </div>
             </div>
           </motion.section>

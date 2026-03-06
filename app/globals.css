@@ -4,6 +4,8 @@
 
 :root {
   color-scheme: dark;
+  --font-inter: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
   --bg-0: #060b12;
   --bg-1: #0d1117;
   --bg-2: #161b22;
