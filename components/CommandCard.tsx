@@ -44,6 +44,12 @@ function MiniGraph({ state }: { state: DiagramState }) {
     <div className="surface-soft rounded-xl p-3">
       <p className="mb-2 text-[11px] uppercase tracking-widest text-slate-400">{state.title}</p>
       <svg viewBox="0 0 280 145" className="h-[145px] w-full rounded-lg bg-[#060a11]">
+        <text x={12} y={18} className="fill-[#238636] text-[10px] font-mono">
+          main
+        </text>
+        <text x={12} y={130} className="fill-[#58A6FF] text-[10px] font-mono">
+          feature
+        </text>
         {state.edges.map((edge) => {
           const from = nodeMap.get(edge.from);
           const to = nodeMap.get(edge.to);
@@ -56,8 +62,8 @@ function MiniGraph({ state }: { state: DiagramState }) {
               x2={to.x}
               y2={to.y}
               stroke={branchColor[edge.branch]}
-              strokeWidth={2.3}
-              strokeOpacity={0.8}
+              strokeWidth={3}
+              strokeOpacity={0.95}
             />
           );
         })}
@@ -74,7 +80,10 @@ function MiniGraph({ state }: { state: DiagramState }) {
                 transition={{ repeat: Infinity, duration: 1.6 }}
               />
             ) : null}
-            <circle cx={node.x} cy={node.y} r={6} fill={branchColor[node.branch]} />
+            <circle cx={node.x} cy={node.y} r={7} fill={branchColor[node.branch]} stroke="#dbe8ff" strokeWidth={1.4} />
+            <text x={node.x - 7} y={node.y - 11} className="fill-slate-300 text-[9px] font-mono">
+              {node.id}
+            </text>
             {node.head ? (
               <text x={node.x + 10} y={node.y + 4} className="fill-gitBlue text-[10px] font-mono">
                 HEAD
